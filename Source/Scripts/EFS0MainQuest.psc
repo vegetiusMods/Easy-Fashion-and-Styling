@@ -1,34 +1,87 @@
 Scriptname EFS0MainQuest extends Quest  
 
-; Hello, I'm a stupidly complex and configurable but easy to use mod to simulate body hair growth.
-; Please love me
-
-;Properties
+; Properties
 ReferenceAlias Property PlayerAlias Auto
+GlobalVariable Property GameDaysPassed Auto
 
 ; Modules
 EFS1Undergarments property UndergarmentsModule Auto
+EFS2BodyHair property BodyHairModule Auto
 
-Actor Player
+; DailyUpdateTriggers
+bool Property OnSleepTrigger Auto
+bool Property OnEquipmentChangeTrigger Auto
+
+; Fields
+Actor[] ManagedActors
+int lastVersion
+EFSzModule[] modules
 
 ; Init and mod lifecycle
 Event OnInit()
-    Player = PlayerAlias.GetActorRef()
-
-    UndergarmentsModule.Toggle()
-
     Load()
 EndEvent
 
 Function Load()
-    UndergarmentsModule.LoadModule()
+    int currentVer = 1000200
+
+    ; 0.2.Alpha BodyHair + Undergarments
+    if (lastVersion < 1000200)
+        ManagedActors = new Actor[1]
+        ManagedActors[0] = PlayerAlias.GetActorRef()
+
+        modules = new EFSzmodule[2]
+        modules[0] = UndergarmentsModule
+        modules[1] = BodyHairModule
+
+        UndergarmentsModule.Toggle()
+        BodyHairModule.Toggle()
+
+        OnSleepTrigger = true
+        OnEquipmentChangeTrigger = false
+    endif 
+
+    LoadAll(lastVersion)
+
+    lastVersion = currentVer
+    
     EFSzUtil.log("Started")
 EndFunction
 
 Function ObjectEquipped(Actor target, Form akBaseObject, ObjectReference akReference)
-    UndergarmentsModule.ObjectEquipped(target, akBaseObject, akReference)
+    int i = 0
+    while (i < modules.Length)
+        modules[i].ObjectEquipped(target, akBaseObject, akReference)
+        i += 1
+    EndWhile
 EndFunction
 
 Function ObjectUnequipped(Actor target, Form akBaseObject, ObjectReference akReference)
-    UndergarmentsModule.ObjectUnequipped(target, akBaseObject, akReference)
+    int i = 0
+    while (i < modules.Length)
+        modules[i].ObjectUnequipped(target, akBaseObject, akReference)
+        i += 1
+    EndWhile
+EndFunction
+
+Actor[] Function GetManagedActors()
+    return ManagedActors
+EndFunction
+
+Function ToggleAll()
+    int i = 0
+    while (i < modules.Length)
+        modules[i].Toggle()
+
+        i += 1
+    EndWhile
+EndFunction
+
+Function LoadAll(int lastVer)
+    int i = 0
+    while (i < modules.Length)
+        modules[i].LoadModule(lastVer)
+
+        i += 1
+    EndWhile
 EndFunction

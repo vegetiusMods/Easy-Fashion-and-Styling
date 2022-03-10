@@ -2,7 +2,6 @@ Scriptname EFS1Undergarments extends EFSzModule
 ; TODO LIST
 ; MCM interactions
 ; Ignore kw list (DD)
-
 String[] Property UndergarmentsList  Auto  
 int[] Property UndergarmentsSlots Auto
 bool[] Property UndergarmentsConcealable Auto
@@ -18,27 +17,6 @@ string jconcealedArmorsKey = "concealedArmors"
 
 Event OnInit()
     ModuleName = "Undergarments"
-
-    UndergarmentsList = new string[5]
-    UndergarmentsList[0] = "Breast"
-    UndergarmentsList[1] = "Chest"
-    UndergarmentsList[2] = "Belt"
-    UndergarmentsList[3] = "Crotch"
-    UndergarmentsList[4] = "Legs"
-
-    UndergarmentsSlots = new int[5]
-    UndergarmentsSlots[0] = 46
-    UndergarmentsSlots[1] = 58
-    UndergarmentsSlots[2] = 48
-    UndergarmentsSlots[3] = 52
-    UndergarmentsSlots[4] = 53
-
-    UndergarmentsConcealable = new bool[5]
-    UndergarmentsConcealable[0] = true
-    UndergarmentsConcealable[1] = true
-    UndergarmentsConcealable[2] = true
-    UndergarmentsConcealable[3] = false
-    UndergarmentsConcealable[4] = false
 EndEvent
 
 State Started
@@ -47,25 +25,53 @@ State Started
         GoToState("")
     EndFunction
 
-    Function LoadModule()
+    Function LoadModule(int lastVersion)
+        if (lastVersion < 1000200)
+            UndergarmentsList = new string[5]
+            UndergarmentsList[0] = "Breast"
+            UndergarmentsList[1] = "Chest"
+            UndergarmentsList[2] = "Belt"
+            UndergarmentsList[3] = "Crotch"
+            UndergarmentsList[4] = "Legs"
+        
+            UndergarmentsSlots = new int[5]
+            UndergarmentsSlots[0] = 46
+            UndergarmentsSlots[1] = 58
+            UndergarmentsSlots[2] = 48
+            UndergarmentsSlots[3] = 52
+            UndergarmentsSlots[4] = 53
+        
+            UndergarmentsConcealable = new bool[5]
+            UndergarmentsConcealable[0] = true
+            UndergarmentsConcealable[1] = true
+            UndergarmentsConcealable[2] = true
+            UndergarmentsConcealable[3] = false
+            UndergarmentsConcealable[4] = false
+        endif
+
         RefreshModule()
     EndFunction
 
     Function RefreshModule()
         EFSzUtil.log("Refreshing undergarments")
-        ; FIXME
-        Actor player = Game.GetPlayer()
-        bool concealingWorn = IsConcealingWorn(player)
+        int i = 0
 
-        EFSzUtil.log("Concealing worn: " + concealingWorn)
-        ; Reveal all conceled
-        ; Armors concealed before reload will still be invisible
-        RevealAll(player, refreshEquip = !concealingWorn)
+        while (i < Main.GetManagedActors().Length)
+            Actor player = Main.GetManagedActors()[i]
+            bool concealingWorn = IsConcealingWorn(player)
 
-        ; Check if concealed and if so conceal all
-        if (concealingWorn)
-            ConcealAll(player)
-        endif
+            EFSzUtil.log("Concealing worn: " + concealingWorn)
+            ; Reveal all conceled
+            ; Armors concealed before reload will still be invisible
+            RevealAll(player, refreshEquip = !concealingWorn)
+
+            ; Check if concealed and if so conceal all
+            if (concealingWorn)
+                ConcealAll(player)
+            endif
+
+            i += 1
+        endwhile
     EndFunction
 
     Function ObjectEquipped(Actor target, Form akBaseObject, ObjectReference akReference)
@@ -112,7 +118,7 @@ State Started
     bool Function IsConcealing(Form obj)
         Armor arm = obj as Armor
         if (arm)
-            return HasOneSlot(arm, GetConcealSlots()) || HasOneKeyword(arm, GetConcealKeywords())
+            return EFSzUtil.HasOneSlot(arm, GetConcealSlots()) || HasOneKeyword(arm, GetConcealKeywords())
         endIf
 
         return false
@@ -153,12 +159,12 @@ State Started
             While (i < UndergarmentsList.Length)
                 if (UndergarmentsConcealable[i])
                     int slotmask = Armor.GetMaskForSlot(UndergarmentsSlots[i])
-                    if (HasSlotMask(arm, slotmask))
+                    if (EFSzUtil.HasSlotMask(arm, slotmask))
                         EFSzUtil.log("Object has concealable slot")
                         return true
                     EndIf
                 endif
-                i = i +1
+                i += 1
             EndWhile
         endIf
 
@@ -180,7 +186,7 @@ State Started
             
             if (UndergarmentsConcealable[i])
                 int slotmask = Armor.GetMaskForSlot(UndergarmentsSlots[i])
-                if (HasSlotMask(akArmor, slotmask) && !IsConcealing(akArmor))
+                if (EFSzUtil.HasSlotMask(akArmor, slotmask) && !IsConcealing(akArmor))
                     slotMaskToRemove = akArmor.GetSlotMask()
                     break = true
                 EndIf
@@ -262,7 +268,7 @@ State Started
         while (i < concealedArmors.Length)
             Armor concealed = concealedArmors[i] as Armor
             int concealedArmorOriginalSlotmask = GetConcealedArmorOriginalSlotmask(concealed)
-            if (target.IsEquipped(concealed) && HasOneSlotFromMask(armorRef, concealedArmorOriginalSlotmask))
+            if (target.IsEquipped(concealed) && EFSzUtil.HasOneSlotFromMask(armorRef, concealedArmorOriginalSlotmask))
                 EFSzUtil.log("Found worn concealed item, revealing and unequipping")
                 Reveal(target, concealed, RefreshEquip = false)
                 target.UnequipItem(concealed)
@@ -315,26 +321,6 @@ State Started
         endif
     EndFunction
 
-    bool Function HasOneSlot(Armor akArmor, int[] slots)
-        int i = 0
-        while (i < slots.Length)
-            if (HasSlot(akArmor, slots[i]))
-                return true
-            endIf
-            i += 1
-        EndWhile
-
-        return false
-    EndFunction
-
-    bool Function HasOneSlotFromMask(Armor akArmor, int slotMask)
-        return Math.LogicalAnd(akArmor.GetSlotMask(), slotmask) > 0
-    EndFunction
-
-    bool Function HasSlot(Armor akArmor, int slot)
-        return HasSlotMask(akArmor, Armor.GetMaskForSlot(slot))
-    EndFunction
-
     bool Function HasOneKeyword(Armor akArmor, String[] keywords)
         int i = 0
         while (i < keywords.Length)
@@ -347,22 +333,12 @@ State Started
         return false
     EndFunction
 
-    bool Function HasSlotMask(Armor akArmor, int slotmask)
-        return Math.LogicalAnd(akArmor.GetSlotMask(), slotmask) == slotmask
-    EndFunction
-
     Function RefreshEquip(Actor target, Form item)
         target.UnequipItem(item, abSilent = true)
         target.EquipItem(item, abSilent = true)
     EndFunction
 
 EndState
-
-Function ObjectEquipped(Actor target, Form akBaseObject, ObjectReference akReference)
-EndFunction
-
-Function ObjectUnequipped(Actor target, Form akBaseObject, ObjectReference akReference)
-EndFunction
 
 bool Function IsConcealing(Form obj)
 EndFunction
@@ -416,19 +392,7 @@ EndFunction
 Function Unhide(Armor akArmor)
 EndFunction
 
-bool Function HasOneSlot(Armor akArmor, int[] slots)
-EndFunction
-
-bool Function HasOneSlotFromMask(Armor akArmor, int slotMask)
-EndFunction
-
-bool Function HasSlot(Armor akArmor, int slot)
-EndFunction
-
 bool Function HasOneKeyword(Armor akArmor, String[] keywords)
-EndFunction
-
-bool Function HasSlotMask(Armor akArmor, int slotmask)
 EndFunction
 
 Function RefreshEquip(Actor target, Form item)
