@@ -1,0 +1,31 @@
+<?xml version='1.0'?><!-- Game is either sse, tesv, or fo4 -->
+<PapyrusProject
+    Flags="TESV_Papyrus_Flags.flg" 
+    Game="sse" 
+    Output="Scripts" 
+    Optimize="true" 
+    Anonymize="true" 
+    Zip="true">
+    <Variables>
+        <Variable Name="ModName" Value="Easy Fashion and Styling"/>
+        <Variable Name="MyProject" Value="."/>
+        <Variable Name="Dist" Value=".\dist"/>
+    </Variables>
+    <Imports>
+        <Import>.\Source\Scripts</Import>
+        <Import>C:\Modding\SkyrimSEL\mods\Scripts\Source\Scripts</Import>
+    </Imports>
+    <Folders>
+        <Folder>@MyProject\Source\Scripts</Folder>
+    </Folders>
+    <ZipFiles Output="@Dist">
+        <ZipFile Name="@ModName" RootDir="@MyProject" Compression="deflate">
+        	<Include NoRecurse="true">*.esp</Include>
+            <Include>Scripts</Include>
+            <Include>Seq</Include>
+            <Include>Source</Include>
+            <Include>SKSE</Include>
+            <Include>fomod</Include>
+        </ZipFile>
+    </ZipFiles>
+</PapyrusProject>

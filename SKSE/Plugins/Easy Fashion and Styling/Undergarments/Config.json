@@ -1,0 +1,21 @@
+{
+	"intList" : 
+	{
+		"concealslots" : 
+		[
+			32
+		]
+	},
+	"stringList" : 
+	{
+		"concealkeywords" : 
+		[
+		],
+		"ignorekeywords" : 
+		[
+			"SexLabNoStrip",
+			"zad_Lockable",
+			"SOS_Genitals"
+		]
+	}
+}
