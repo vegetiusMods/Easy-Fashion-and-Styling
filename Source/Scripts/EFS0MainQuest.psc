@@ -34,11 +34,11 @@ Function Load()
         modules[0] = UndergarmentsModule
         modules[1] = BodyHairModule
 
-        UndergarmentsModule.Toggle()
-        BodyHairModule.Toggle()
-
         OnSleepTrigger = true
         OnEquipmentChangeTrigger = false
+
+        UndergarmentsModule.Toggle()
+        BodyHairModule.Toggle()
     endif 
 
     LoadAll(lastVersion)
@@ -81,6 +81,15 @@ Function LoadAll(int lastVer)
     int i = 0
     while (i < modules.Length)
         modules[i].LoadModule(lastVer)
+
+        i += 1
+    EndWhile
+EndFunction
+
+Function RefreshAll(bool force = false)
+    int i = 0
+    while (i < modules.Length)
+        modules[i].RefreshModule(force)
 
         i += 1
     EndWhile

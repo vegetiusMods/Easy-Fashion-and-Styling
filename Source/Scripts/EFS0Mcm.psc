@@ -6,26 +6,19 @@ EFS2BodyHair Property BodyHairModule Auto
 
 ; Pages
 string generalPage = "General"
-string undergarmentsPage = "Undergarments"
 
 ; Modules gen
 int IdModuleActive
-
-; Refresh
-; There is prolly a better solution, but I'll wait at least a second module to come up with it to avoid over ingeniering
-bool undergarmentsModuleNeedsRefresh
 
 ; Consts
 int minArmorSlot = 30
 int maxArmorSlot = 61
 
 event OnConfigOpen()
-    Pages = new string[2]
+    Pages = new string[3]
     Pages[0] = generalPage
     Pages[1] = UndergarmentsModule.ModuleName
     Pages[2] = BodyHairModule.ModuleName
-
-    undergarmentsModuleNeedsRefresh = false
 EndEvent
 
 Event OnPageReset(String Page)
@@ -37,9 +30,7 @@ Event OnPageReset(String Page)
 endEvent
 
 event OnConfigClose()
-    if (undergarmentsModuleNeedsRefresh)
-        UndergarmentsModule.RefreshModule()
-    endif
+    Main.RefreshAll()
 endEvent
 
 int IdGModActive
@@ -133,7 +124,7 @@ State Undergarments
                 If OptionID == IdsUndergarmentsConcealable[i]
                     UndergarmentsModule.UndergarmentsConcealable[i] = !UndergarmentsModule.UndergarmentsConcealable[i]
                     SetToggleOptionValue(IdsUndergarmentsConcealable[i], UndergarmentsModule.UndergarmentsConcealable[i])
-                    undergarmentsModuleNeedsRefresh = true
+                    UndergarmentsModule.FlaggedForRefresh = true
                     break = true
                 EndIf
                 i += 1
@@ -160,7 +151,7 @@ State Undergarments
             If OptionID == IdsUndergarmentsSlots[i]
                 UndergarmentsModule.UndergarmentsSlots[i] = value as int
                 SetSliderOptionValue(IdsUndergarmentsSlots[i], value)
-                undergarmentsModuleNeedsRefresh = true
+                UndergarmentsModule.FlaggedForRefresh = true
                 break = true
             EndIf
             i += 1
@@ -229,6 +220,7 @@ State BodyHair
         if (OptionID == IdBHDaysForGrowthDefault)
             BodyHairModule.DaysForGrowthDefault = value as int
             SetSliderOptionValue(IdBHDaysForGrowthDefault, value)
+            BodyHairModule.FlaggedForRefresh = true
         endif
     EndEvent
 
@@ -249,6 +241,7 @@ State BodyHair
 
     Event OnOptionMenuAccept(int option, int index)
         BodyHairModule.BodyHairAreasPresets[BHcurrentAreaIndex] = BHcurrentPresets[index]
+        BodyHairModule.FlaggedForRefresh = true
     EndEvent
 
 EndState

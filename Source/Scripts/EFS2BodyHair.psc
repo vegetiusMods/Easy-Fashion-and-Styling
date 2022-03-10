@@ -35,7 +35,7 @@ EndEvent
 State Started
 
     Function Toggle()
-        GoToState("")
+        GoToState("Stopping")
     EndFunction
 
     Function LoadModule(int lastVersion)
@@ -52,17 +52,21 @@ State Started
             OutfitRestrictAccess = true
         endif
 
-        RefreshModule()
+        RefreshModule(force = true)
     EndFunction
 
-    Function RefreshModule()
+    Function DoRefresh()
         if (Main.OnSleepTrigger)
             RegisterForSleep()
         endif
 
-        UpdateGrowthAll()
-
         EFSzUtil.log("Refreshing body hair")
+
+        int i = 0
+        while (i < Main.GetManagedActors().Length)
+            Refresh(Main.GetManagedActors()[i])
+            i += 1
+        EndWhile
     EndFunction
 
     Event OnSleepStop(bool abInterrupted)
@@ -86,6 +90,14 @@ State Started
 
             i += 1
         EndWhile
+    EndFunction
+
+    Function Refresh(Actor target)
+        int i = 0
+        while i < BodyHairAreas.Length
+            RefreshZoneOverlay(target, BodyHairAreas[i])
+            i += 1
+        endWhile
     EndFunction
 
     Function UpdateGrowth(Actor target)
@@ -250,10 +262,35 @@ State Started
 
 EndState
 
+Function CleanModule()
+    int i = 0
+    Actor[] managedActs = Main.GetManagedActors()
+
+    while i < managedActs.length
+    Actor target = managedActs[i]
+        int j = 0
+        while j < BodyHairAreas.Length
+        string areaName = BodyHairAreas[j]
+            string overlayNode = StorageUtil.GetStringValue(target, sOverlayNodeStorageKeyPrefix + areaName, missing = "")
+            if (overlayNode != "")
+                EFSzUtil.ClearOverlay(target, overlayNode)
+            endif
+            StorageUtil.UnsetStringValue(target, sOverlayNodeStorageKeyPrefix + areaName)
+            Storageutil.UnsetIntValue(target, sLastUpdateDayKeyPrefix + areaName)
+            Storageutil.UnsetIntValue(target, sCurrentAreaStageKeyPrefix + areaName)
+            j += 1
+        endWhile
+        i += 1
+    endWhile
+EndFunction
+
 Function UpdateGrowthAll()
 EndFunction
 
 Function UpdateGrowth(Actor target)
+EndFunction
+
+Function Refresh(Actor target)
 EndFunction
 
 Function UpdateAreaHair(Actor target, int areaIndex, int gameDayPassedValue)
