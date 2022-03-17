@@ -60,27 +60,56 @@ bool function IsDefaultOrEmptyTexture(string texturePath) global
     return texturePath == "" || StringUtil.Find(texturePath, "efault.dds") > -1
 EndFunction
 
+Function ApplyTexture(Actor target, String uniquekey, String texture, int tintColor) global
+    string overlayNode = StorageUtil.GetStringValue(target, uniquekey, missing = "")
+    if (EFSzUtil.IsDefaultOrEmptyTexture(texture) && overlayNode != "")
+        EFSzUtil.log("Texture string is empty or default, removing current overlay")
+        EFSzUtil.ClearOverlay(target, overlayNode)
+        StorageUtil.UnsetStringValue(target, uniquekey)
+    Else
+        if (overlayNode == "" || overlayNode == "None")
+            overlayNode = EFSzUtil.GetAvailableBodyNode(target)
+            if (overlayNode == "")
+                Debug.MessageBox("Easy Fashion and Styling was not able to find an available overlay node to apply an override.\nPlease increase the number of available nodes in NiOverride.ini.")
+                return
+            else
+                StorageUtil.SetStringValue(target, uniquekey, overlayNode)
+            endif
+        endIf
+        
+        EFSzUtil.log("Applying overlay to node: " + overlayNode)
+        EFSzUtil.ApplyOverlay(target, overlayNode, texture, target.GetActorBase().GetHairColor().GetColor())
+    endIf
+EndFunction
+
 String Function GetAvailableBodyNode(Actor target) global
 	Int i = 0
 	Int NumSlots = NiOverride.GetNumBodyOverlays()
-	String TexPath
 	Bool FirstPass = true
+    string[] reservedNodes = StorageUtil.StringListToArray(target, "EFS_reserved_nio_nodes")
 
 	While i < NumSlots
         string bodyOvl = "Body [ovl" + i + "]"
-
-            TexPath = NiOverride.GetNodeOverrideString(target, true, bodyOvl, 9, 0)
+        if (reservedNodes.Find(bodyOvl) < 0)
+            String TexPath = NiOverride.GetNodeOverrideString(target, true, bodyOvl, 9, 0)
             If IsDefaultOrEmptyTexture(TexPath)
                 log("Slot " + i + " chosen")
                 Return bodyOvl
             EndIf
+        endif
+        
 		i += 1
+		If FirstPass && i == NumSlots
+			FirstPass = false
+			i = 0
+		EndIf
 	EndWhile
 
 	Return ""
 EndFunction
 
 Function ApplyOverlay(Actor target, String node, String texture, int tintColor) global
+    StorageUtil.StringListAdd(target, "EFS_reserved_nio_nodes", node, allowDuplicate = false)
     bool female = IsFemale(target)
     NiOverride.AddNodeOverrideString(target, female, node, 9, 0, texture, true)
     Utility.Wait(0.01)
@@ -100,6 +129,7 @@ Function ApplyOverlay(Actor target, String node, String texture, int tintColor) 
 EndFunction
 
 Function ClearOverlay(Actor target, String node) global
+    ; TODO Try RemoveAllNodeNameOverrides
     bool female = IsFemale(target)
     NiOverride.AddNodeOverrideString(target, female, Node, 9, 0, "actors\\character\\overlays\\default.dds", false)
 	NiOverride.RemoveNodeOverride(target, female, node , 9, 0)
@@ -108,4 +138,14 @@ Function ClearOverlay(Actor target, String node) global
 	NiOverride.RemoveNodeOverride(target, female, Node, 8, -1)
 	NiOverride.RemoveNodeOverride(target, female, Node, 2, -1)
 	NiOverride.RemoveNodeOverride(target, female, Node, 3, -1)
+    StorageUtil.StringListRemove(target, "EFS_reserved_nio_nodes", node, allInstances = true)
+EndFunction
+
+; Versioning
+int Function GetModVersion() global
+    return 1000200
+EndFunction
+
+int Function Get02AlphaVersion() global
+    return 1000200
 EndFunction

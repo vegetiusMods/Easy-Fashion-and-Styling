@@ -2,7 +2,6 @@ Scriptname EFSzModule extends Quest
 
 EFS0MainQuest Property Main Auto
 string Property ModuleName Auto
-string Property ModuleVersion Auto
 bool Property FlaggedForRefresh Auto
 
 bool Function IsModuleStarted()
@@ -13,7 +12,7 @@ Function Toggle()
     GoToState("Started")
 EndFunction
 
-Function LoadModule(int lastVersion)
+Function LoadModule(int loadedVersion)
 
 EndFunction
 

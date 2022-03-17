@@ -1,6 +1,7 @@
 Scriptname EFS0MainQuest extends Quest  
 
 ; Properties
+int Property LoadedVersion Auto
 ReferenceAlias Property PlayerAlias Auto
 GlobalVariable Property GameDaysPassed Auto
 
@@ -14,37 +15,47 @@ bool Property OnEquipmentChangeTrigger Auto
 
 ; Fields
 Actor[] ManagedActors
-int lastVersion
 EFSzModule[] modules
+
+; Config
+string fullMcmConfigLocation = "data/skse/plugins/Easy Fashion and Styling/Mcm/"
+string relativeMcmConfigLocation = "../Easy Fashion and Styling/Mcm/"
+string defaultConfigFileName = "default"
 
 ; Init and mod lifecycle
 Event OnInit()
-    Load()
+    LoadedVersion = 0
+    Load(firstStart = true)
 EndEvent
 
-Function Load()
-    int currentVer = 1000200
+Function Load(bool firstStart = false)
+    RegisterForModEvent("EFS_ReloadNeeded", "OnReloadNeeded")
+
+    int currentVer = EFSzUtil.GetModVersion()
+
+    ManagedActors = new Actor[1]
+    ManagedActors[0] = Game.GetPlayer()
+
+    modules = new EFSzmodule[2]
+    modules[0] = UndergarmentsModule
+    modules[1] = BodyHairModule
 
     ; 0.2.Alpha BodyHair + Undergarments
-    if (lastVersion < 1000200)
-        ManagedActors = new Actor[1]
-        ManagedActors[0] = PlayerAlias.GetActorRef()
-
-        modules = new EFSzmodule[2]
-        modules[0] = UndergarmentsModule
-        modules[1] = BodyHairModule
-
+    if (LoadedVersion < EFSzUtil.Get02AlphaVersion())
         OnSleepTrigger = true
         OnEquipmentChangeTrigger = false
-
-        UndergarmentsModule.Toggle()
-        BodyHairModule.Toggle()
     endif 
 
-    LoadAll(lastVersion)
+    LoadAll(LoadedVersion)
 
-    lastVersion = currentVer
-    
+    If (firstStart)
+        LoadDefaultConfig()
+    Else
+        RefreshAll(force = true)
+    EndIf
+
+    LoadedVersion = currentVer
+
     EFSzUtil.log("Started")
 EndFunction
 
@@ -67,6 +78,18 @@ EndFunction
 Actor[] Function GetManagedActors()
     return ManagedActors
 EndFunction
+
+Function StartAsynchReload()
+    int handle = ModEvent.Create("EFS_ReloadNeeded")
+    if (handle)
+        ModEvent.Send(handle)
+    endIf
+EndFunction
+
+Event OnReloadNeeded()
+    EFSzUtil.log("Receive ReloadNeeded event")
+    RefreshAll()
+EndEvent
 
 Function ToggleAll()
     int i = 0
@@ -93,4 +116,91 @@ Function RefreshAll(bool force = false)
 
         i += 1
     EndWhile
+EndFunction
+
+
+; Config
+
+Function SaveConfig(string fileName)
+    string filePath = relativeMcmConfigLocation + fileName
+    ; 0 - General
+    JsonUtil.SetIntValue(filePath, "Id0DailyUpdateOnSleepTrigger", OnSleepTrigger as int)
+    JsonUtil.SetIntValue(filePath, "Id0DailyUpdateOnEquipmentChange", OnEquipmentChangeTrigger as int)
+
+    ; 1 - Undergarments
+    JsonUtil.SetIntValue(filePath, "Id1ModuleActive", UndergarmentsModule.IsModuleStarted() as int)
+    JsonUtil.SetIntValue(filePath, "Id1ConcealingPreventInteract", UndergarmentsModule.ConcealingPreventInteract as int)
+
+    JsonUtil.IntListClear(filePath, "Ids1UndergarmentsSlots")
+    JsonUtil.IntListClear(filePath, "Ids1UndergarmentsConcealable")
+    int i = 0
+    while i < UndergarmentsModule.UndergarmentsList.Length
+        JsonUtil.IntListAdd(filePath, "Ids1UndergarmentsSlots", UndergarmentsModule.UndergarmentsSlots[i])
+        JsonUtil.IntListAdd(filePath, "Ids1UndergarmentsConcealable", UndergarmentsModule.UndergarmentsConcealable[i] as int)
+        i += 1
+    endwhile
+
+    ; 2 - Body Hair
+    JsonUtil.SetIntValue(filePath, "Id2ModuleActive", BodyHairModule.IsModuleStarted() as int)
+    JsonUtil.SetIntValue(filePath, "Id2BHOutfitRestrictAccess", BodyHairModule.OutfitRestrictAccess as int)
+    JsonUtil.SetIntValue(filePath, "Id2BHDaysForGrowthDefault", BodyHairModule.DaysForGrowthDefault)
+    JsonUtil.SetIntValue(filePath, "Id2BHUndergarmentsIntegration", BodyHairModule.UndergarmentsIntegration as int)
+
+    JsonUtil.StringListClear(filePath, "Id2BHAreasPresets")
+    JsonUtil.StringListAdd(filePath, "Id2BHAreasPresets", BodyHairModule.BodyHairAreasPresets[0])
+    JsonUtil.StringListAdd(filePath, "Id2BHAreasPresets", BodyHairModule.BodyHairAreasPresets[1])
+
+	JsonUtil.Save(filePath)
+EndFunction
+
+Function SaveDefaultConfig()
+    SaveConfig(defaultConfigFileName)
+EndFunction
+
+Function LoadConfig(string fileName)
+    if (HasConfig(fileName))
+        string filePath = relativeMcmConfigLocation + fileName
+        JsonUtil.Load(filePath)
+
+        ; 0 - General
+        OnSleepTrigger = JsonUtil.GetIntValue(filePath, "Id0DailyUpdateOnSleepTrigger") as bool
+        OnEquipmentChangeTrigger = JsonUtil.GetIntValue(filePath, "Id0DailyUpdateOnEquipmentChange") as bool
+
+        ; 1 - Undergarments    
+        UndergarmentsModule.ConcealingPreventInteract = JsonUtil.GetIntValue(filePath, "Id1ConcealingPreventInteract") as bool
+        int i = 0
+        while i < UndergarmentsModule.UndergarmentsList.Length
+            UndergarmentsModule.UndergarmentsSlots[i] = JsonUtil.IntListGet(filePath, "Ids1UndergarmentsSlots", i)
+            UndergarmentsModule.UndergarmentsConcealable[i] = JsonUtil.IntListGet(filePath, "Ids1UndergarmentsConcealable", i) as bool
+            i += 1
+        endwhile
+
+        ToggleLoadModule(filePath, "Id1ModuleActive", UndergarmentsModule)
+
+        ; 2 - Body Hair
+        BodyHairModule.OutfitRestrictAccess = JsonUtil.GetIntValue(filePath, "Id2BHOutfitRestrictAccess") as bool
+        BodyHairModule.DaysForGrowthDefault = JsonUtil.GetIntValue(filePath, "Id2BHDaysForGrowthDefault")
+        BodyHairModule.UndergarmentsIntegration = JsonUtil.GetIntValue(filePath, "Id2BHUndergarmentsIntegration") as bool
+
+        BodyHairModule.BodyHairAreasPresets[0] = JsonUtil.StringListGet(filePath, "Id2BHAreasPresets", 0)
+        BodyHairModule.BodyHairAreasPresets[1] = JsonUtil.StringListGet(filePath, "Id2BHAreasPresets", 1)
+
+        ToggleLoadModule(filePath, "Id2ModuleActive", BodyHairModule)
+    endif
+EndFunction
+
+Function LoadDefaultConfig()
+    LoadConfig(defaultConfigFileName)
+EndFunction
+
+Function ToggleLoadModule(String filePath, string startKey, EFSzModule module)
+    if (JsonUtil.GetIntValue(filePath, startKey) as bool != module.IsModuleStarted())
+        module.Toggle()
+    else
+        module.FlaggedForRefresh = true
+    endif
+EndFunction
+
+bool Function HasConfig(string fileName)
+	return MiscUtil.FileExists(fullMcmConfigLocation + fileName + ".json")
 EndFunction

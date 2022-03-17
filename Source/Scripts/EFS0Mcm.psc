@@ -4,6 +4,8 @@ EFS0MainQuest Property Main Auto
 EFS1Undergarments Property UndergarmentsModule Auto
 EFS2BodyHair Property BodyHairModule Auto
 
+
+
 ; Pages
 string generalPage = "General"
 
@@ -23,85 +25,98 @@ EndEvent
 
 Event OnPageReset(String Page)
     if (Page == "")
-        Page = "General"
+        Page = generalPage
     endif
 	
-	GoToState(EFSzUtil.Escape(Page, " "))
+	SwitchPage(Page)
 endEvent
 
 event OnConfigClose()
-    Main.RefreshAll()
+    Main.StartAsynchReload()
 endEvent
 
-int IdGModActive
-int IdGDailyUpdateOnSleepTrigger
-int IdGDailyUpdateOnEquipmentChange
+int Id0ModActive
+int Id0DailyUpdateOnSleepTrigger
+int Id0DailyUpdateOnEquipmentChange
+
+int Id0QuicksaveConfig
+int Id0QuickloadConfig
 
 ; General
 State General
     Event OnBeginState()
         AddHeaderOption("Daily Update Triggers")
-        AddEmptyOption()
-        IdGDailyUpdateOnSleepTrigger = AddToggleOption("On Sleep", Main.OnSleepTrigger)
-        AddEmptyOption()
-        IdGDailyUpdateOnEquipmentChange = AddToggleOption("On (Un)Equip", Main.OnEquipmentChangeTrigger)
+        Id0QuicksaveConfig = AddTextOption("Save as default", "CLICK")
+        Id0DailyUpdateOnSleepTrigger = AddToggleOption("On Sleep", Main.OnSleepTrigger)
+        Id0QuickloadConfig = AddTextOption("Load default", "CLICK")
+        Id0DailyUpdateOnEquipmentChange = AddToggleOption("On (Un)Equip", Main.OnEquipmentChangeTrigger)
     EndEvent
 
     Event OnOptionHighlight(int option)
-        If (Option == IdGDailyUpdateOnSleepTrigger)
+        If (Option == Id0DailyUpdateOnSleepTrigger)
             SetInfoText("The daily update of the various modules will trigger on sleep. Highly advised.")
-        elseIf (Option == IdGDailyUpdateOnEquipmentChange)
+        elseIf (Option == Id0DailyUpdateOnEquipmentChange)
             SetInfoText("The daily update of the various modules will trigger on equipment change. Each module will only process the event it the changed item is relevant to him, so it souldn't be too heavy. If you sleep regularly, the 'On Sleep' trigger is probably enough.")
+        elseif(Option == Id0QuicksaveConfig)
+            SetInfoText("Saves the current configuration as the default one.")
+        elseif(Option == Id0QuickloadConfig)
+            SetInfoText("Reload the default configuration.")
         endif
     EndEvent
 
     Event OnOptionSelect(Int OptionID)
-        if (OptionID == IdGDailyUpdateOnSleepTrigger)
+        if (OptionID == Id0DailyUpdateOnSleepTrigger)
             Main.OnSleepTrigger = !Main.OnSleepTrigger
-            SetToggleOptionValue(IdGDailyUpdateOnSleepTrigger, Main.OnSleepTrigger)
-        elseif (OptionID == IdGDailyUpdateOnEquipmentChange)
+            SetToggleOptionValue(Id0DailyUpdateOnSleepTrigger, Main.OnSleepTrigger)
+        elseif (OptionID == Id0DailyUpdateOnEquipmentChange)
             Main.OnEquipmentChangeTrigger = !Main.OnEquipmentChangeTrigger
-            SetToggleOptionValue(IdGDailyUpdateOnEquipmentChange, Main.OnEquipmentChangeTrigger)
+            SetToggleOptionValue(Id0DailyUpdateOnEquipmentChange, Main.OnEquipmentChangeTrigger)
+        elseif(OptionID == Id0QuicksaveConfig)
+            Main.SaveDefaultConfig()
+            Debug.MessageBox("The current configuration has been saved as the default one.")
+        elseif(OptionID == Id0QuickloadConfig)
+            Main.LoadDefaultConfig()
+            Debug.MessageBox("The default configuration has been loaded.")
         endif
     EndEvent
 EndState
 
 ; Undergraments
-int IdConcealingPreventInteract
-int[] IdsUndergarmentsSlots
-int[] IdsUndergarmentsConcealable
+int Id1ConcealingPreventInteract
+int[] Ids1UndergarmentsSlots
+int[] Ids1UndergarmentsConcealable
 
 string concealableLabel = "Concealable"
 
 State Undergarments
 
     Event OnBeginState()
-        IdsUndergarmentsConcealable = new int[5]
-        IdsUndergarmentsSlots = new int[5]
+        Ids1UndergarmentsConcealable = new int[5]
+        Ids1UndergarmentsSlots = new int[5]
 
         IdModuleActive = AddToggleOption("Module active", UndergarmentsModule.IsModuleStarted())
-        IdConcealingPreventInteract = AddToggleOption("Block concealed interaction", UndergarmentsModule.ConcealingPreventInteract)
+        Id1ConcealingPreventInteract = AddToggleOption("Block concealed interaction", UndergarmentsModule.ConcealingPreventInteract)
 
         AddHeaderOption("Slots")
         AddEmptyOption()
         int i = 0
-        while i < IdsUndergarmentsSlots.Length
+        while i < Ids1UndergarmentsSlots.Length
             string title = UndergarmentsModule.UndergarmentsList[i]
-            IdsUndergarmentsSlots[i] = AddSliderOption(title, UndergarmentsModule.UndergarmentsSlots[i])
-            IdsUndergarmentsConcealable[i] = AddToggleOption(concealableLabel, UndergarmentsModule.UndergarmentsConcealable[i])
+            Ids1UndergarmentsSlots[i] = AddSliderOption(title, UndergarmentsModule.UndergarmentsSlots[i])
+            Ids1UndergarmentsConcealable[i] = AddToggleOption(concealableLabel, UndergarmentsModule.UndergarmentsConcealable[i])
             i += 1
         endwhile
     EndEvent
 
     Event OnOptionHighlight(int option)
-        If (Option == IdConcealingPreventInteract)
+        If (Option == Id1ConcealingPreventInteract)
             SetInfoText("If active, you won't be able to put/remove undergarment while they are concealed.")
         else
             int i = 0
-            while (i < IdsUndergarmentsSlots.Length)
-                if (option == IdsUndergarmentsSlots[i])
+            while (i < Ids1UndergarmentsSlots.Length)
+                if (option == Ids1UndergarmentsSlots[i])
                     SetInfoText("Sets the body slot that will be considered as being this body part undergarment.")
-                elseif (option == IdsUndergarmentsConcealable[i])
+                elseif (option == Ids1UndergarmentsConcealable[i])
                     SetInfoText("Sets if undergarments covering this body part can be concealed by armor or clothes.")
                 endif
 
@@ -114,16 +129,16 @@ State Undergarments
         if (OptionID == IdModuleActive)
             UndergarmentsModule.Toggle()
             SetToggleOptionValue(IdModuleActive, UndergarmentsModule.IsModuleStarted())
-        elseif (OptionID == IdConcealingPreventInteract)
+        elseif (OptionID == Id1ConcealingPreventInteract)
             UndergarmentsModule.ConcealingPreventInteract = !UndergarmentsModule.ConcealingPreventInteract
-            SetToggleOptionValue(IdConcealingPreventInteract, UndergarmentsModule.ConcealingPreventInteract)
+            SetToggleOptionValue(Id1ConcealingPreventInteract, UndergarmentsModule.ConcealingPreventInteract)
         else
             int i = 0
             bool break = false
-            while i < IdsUndergarmentsConcealable.Length && !break
-                If OptionID == IdsUndergarmentsConcealable[i]
+            while i < Ids1UndergarmentsConcealable.Length && !break
+                If OptionID == Ids1UndergarmentsConcealable[i]
                     UndergarmentsModule.UndergarmentsConcealable[i] = !UndergarmentsModule.UndergarmentsConcealable[i]
-                    SetToggleOptionValue(IdsUndergarmentsConcealable[i], UndergarmentsModule.UndergarmentsConcealable[i])
+                    SetToggleOptionValue(Ids1UndergarmentsConcealable[i], UndergarmentsModule.UndergarmentsConcealable[i])
                     UndergarmentsModule.FlaggedForRefresh = true
                     break = true
                 EndIf
@@ -135,8 +150,8 @@ State Undergarments
     Event OnOptionSliderOpen(int OptionID)
         int i = 0
         bool break = false
-        while i < IdsUndergarmentsSlots.Length && !break
-            If OptionID == IdsUndergarmentsSlots[i]
+        while i < Ids1UndergarmentsSlots.Length && !break
+            If OptionID == Ids1UndergarmentsSlots[i]
                 SetSliderOptions(Value = UndergarmentsModule.UndergarmentsSlots[i], Default = UndergarmentsModule.UndergarmentsSlots[i], Min = minArmorSlot, Max = maxArmorSlot, Interval = 1)
                 break = true
             EndIf
@@ -147,10 +162,10 @@ State Undergarments
     Event OnOptionSliderAccept(int optionid, float value)
         int i = 0
         bool break = false
-        while i < IdsUndergarmentsSlots.Length && !break
-            If OptionID == IdsUndergarmentsSlots[i]
+        while i < Ids1UndergarmentsSlots.Length && !break
+            If OptionID == Ids1UndergarmentsSlots[i]
                 UndergarmentsModule.UndergarmentsSlots[i] = value as int
-                SetSliderOptionValue(IdsUndergarmentsSlots[i], value)
+                SetSliderOptionValue(Ids1UndergarmentsSlots[i], value)
                 UndergarmentsModule.FlaggedForRefresh = true
                 break = true
             EndIf
@@ -162,11 +177,11 @@ EndState
 
 ; Body hair
 
-int IdBHOutfitRestrictAccess
-int IdBHDaysForGrowthDefault
-int IdBHUndergarmentsIntegration
-int[] IdBHAreasPresets
-int[] IdBHAreasStages
+int Id2BHOutfitRestrictAccess
+int Id2BHDaysForGrowthDefault
+int Id2BHUndergarmentsIntegration
+int[] Id2BHAreasPresets
+int[] Id2BHAreasStages
 
 int BHcurrentAreaIndex
 string[] BHcurrentPresets
@@ -174,25 +189,26 @@ string[] BHcurrentPresets
 State BodyHair
     Event OnBeginState()
         IdModuleActive = AddToggleOption("Module active", BodyHairModule.IsModuleStarted())
-        IdBHOutfitRestrictAccess = AddToggleOption("Outfit restrict access", BodyHairModule.OutfitRestrictAccess)
-        IdBHDaysForGrowthDefault = AddSliderOption("Days for growth",  BodyHairModule.DaysForGrowthDefault)
-        IdBHUndergarmentsIntegration = AddToggleOption("Undergarments integration", BodyHairModule.UndergarmentsIntegration)
+        Id2BHOutfitRestrictAccess = AddToggleOption("Outfit restrict access", BodyHairModule.OutfitRestrictAccess)
+        ; Id2BHDaysForGrowthDefault = AddSliderOption("Days for growth",  BodyHairModule.DaysForGrowthDefault)
+        Id2BHUndergarmentsIntegration = AddToggleOption("Undergarments integration", BodyHairModule.UndergarmentsIntegration)
 
         AddHeaderOption(BodyHairModule.BodyHairAreas[0])
         AddHeaderOption(BodyHairModule.BodyHairAreas[1])
 
-        IdBHAreasPresets[0] = AddMenuOption("Preset", BodyHairModule.BodyHairAreasPresets[0])
-        IdBHAreasPresets[1] = AddMenuOption("Preset", BodyHairModule.BodyHairAreasPresets[0])
+        Id2BHAreasPresets = new int[2]
+        Id2BHAreasPresets[0] = AddMenuOption("Preset", BodyHairModule.BodyHairAreasPresets[0])
+        Id2BHAreasPresets[1] = AddMenuOption("Preset", BodyHairModule.BodyHairAreasPresets[1])
     endevent
 
     Event OnOptionHighlight(int option)
         If (Option == IdModuleActive)
             SetInfoText("Toggle this module on/off.")
-        elseif (option == IdBHOutfitRestrictAccess)
+        elseif (option == Id2BHOutfitRestrictAccess)
             SetInfoText("If active, wearing armor while prevent you from shaving.")
-        elseif (option == IdBHDaysForGrowthDefault)
+        elseif (option == Id2BHDaysForGrowthDefault)
             SetInfoText("Number of days between each growth stage. Does not impact performance, so set to your liking.")
-        elseif (option == IdBHUndergarmentsIntegration)
+        elseif (option == Id2BHUndergarmentsIntegration)
             SetInfoText("If this and 'Outfit restrict access' are active, wearing undergarments will also prevent you from shaving.")
         endif
     EndEvent
@@ -201,33 +217,33 @@ State BodyHair
         if (OptionID == IdModuleActive)
             BodyHairModule.Toggle()
             SetToggleOptionValue(IdModuleActive, BodyHairModule.IsModuleStarted())
-        elseif (OptionID == IdBHOutfitRestrictAccess)
+        elseif (OptionID == Id2BHOutfitRestrictAccess)
             BodyHairModule.OutfitRestrictAccess = !BodyHairModule.OutfitRestrictAccess
-            SetToggleOptionValue(IdBHOutfitRestrictAccess, BodyHairModule.OutfitRestrictAccess)
-        elseif (OptionID == IdBHUndergarmentsIntegration)
+            SetToggleOptionValue(Id2BHOutfitRestrictAccess, BodyHairModule.OutfitRestrictAccess)
+        elseif (OptionID == Id2BHUndergarmentsIntegration)
             BodyHairModule.UndergarmentsIntegration = !BodyHairModule.UndergarmentsIntegration
-            SetToggleOptionValue(IdBHUndergarmentsIntegration, BodyHairModule.UndergarmentsIntegration)
+            SetToggleOptionValue(Id2BHUndergarmentsIntegration, BodyHairModule.UndergarmentsIntegration)
         endif
     EndEvent
 
     Event OnOptionSliderOpen(int OptionID)
-        if (OptionID == IdBHDaysForGrowthDefault)
-            SetSliderOptions(BodyHairModule.DaysForGrowthDefault, BodyHairModule.DaysForGrowthDefault, 0, 30, 1)
+        if (OptionID == Id2BHDaysForGrowthDefault)
+            ; SetSliderOptions(BodyHairModule.DaysForGrowthDefault, BodyHairModule.DaysForGrowthDefault, 0, 30, 1)
         endif
     EndEvent
 
     Event OnOptionSliderAccept(int optionid, float value)
-        if (OptionID == IdBHDaysForGrowthDefault)
-            BodyHairModule.DaysForGrowthDefault = value as int
-            SetSliderOptionValue(IdBHDaysForGrowthDefault, value)
+        if (OptionID == Id2BHDaysForGrowthDefault)
+            ; BodyHairModule.DaysForGrowthDefault = value as int
+            SetSliderOptionValue(Id2BHDaysForGrowthDefault, value)
             BodyHairModule.FlaggedForRefresh = true
         endif
     EndEvent
 
     Event OnOptionMenuOpen(int option)
         int i = 0
-        while (i < BodyHairModule.BodyHairAreas.Length)
-            if (option == IdBHAreasPresets[i])
+        while (i < Id2BHAreasPresets.Length)
+            if (option == Id2BHAreasPresets[i])
                 BHcurrentAreaIndex = i
                 BHcurrentPresets = BodyHairModule.GetPresetsNames(true, BodyHairModule.BodyHairAreas[i])
                 SetMenuDialogOptions(BHcurrentPresets)
@@ -240,13 +256,19 @@ State BodyHair
     EndEvent
 
     Event OnOptionMenuAccept(int option, int index)
-        BodyHairModule.BodyHairAreasPresets[BHcurrentAreaIndex] = BHcurrentPresets[index]
+        string preset = BHcurrentPresets[index]
+        SetMenuOptionValue(option, preset)
+        BodyHairModule.BodyHairAreasPresets[BHcurrentAreaIndex] = preset
         BodyHairModule.FlaggedForRefresh = true
     EndEvent
 
 EndState
 
 ; Utils
+
+Function SwitchPage(string pageLabel)
+    GoToState(EFSzUtil.Escape(pageLabel, " "))
+EndFunction
 
 Function SetSliderOptions(Float Value, Float Default, Float Min, Float Max, Float Interval)
 	SetSliderDialogStartValue(Value)

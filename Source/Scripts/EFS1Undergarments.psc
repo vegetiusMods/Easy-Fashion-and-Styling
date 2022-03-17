@@ -3,8 +3,9 @@ Scriptname EFS1Undergarments extends EFSzModule
 ; MCM interactions
 ; Ignore kw list (DD)
 String[] Property UndergarmentsList  Auto  
-int[] Property UndergarmentsSlots Auto
-bool[] Property UndergarmentsConcealable Auto
+Int[] Property UndergarmentsSlots  Auto  
+
+Bool[] Property UndergarmentsConcealable  Auto  
 bool Property ConcealingPreventInteract = true Auto
 
 ; JSON
@@ -89,8 +90,8 @@ State Started
     EndFunction
 EndState
 
-Function LoadModule(int lastVersion)
-    if (lastVersion < 1000200)
+Function LoadModule(int loadedVersion)
+    if (loadedVersion < EFSzUtil.Get02AlphaVersion())
         UndergarmentsList = new string[5]
         UndergarmentsList[0] = "Breast"
         UndergarmentsList[1] = "Chest"
@@ -111,9 +112,11 @@ Function LoadModule(int lastVersion)
         UndergarmentsConcealable[2] = true
         UndergarmentsConcealable[3] = false
         UndergarmentsConcealable[4] = false
-    endif
 
-    RefreshModule(force = true)
+        FlaggedForRefresh = false
+
+        Toggle()
+    endif
 EndFunction
 
 Function CleanModule()

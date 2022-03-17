@@ -3,7 +3,7 @@ Scriptname EFS0PlayerAliasScript extends ReferenceAlias
 EFS0MainQuest Property EFSMain Auto  
 
 Event OnPlayerLoadGame()
-	EFSMain.Load()
+	EFSMain.Load(firstStart = false)
 EndEvent
 
 Event OnObjectEquipped(Form akBaseObject, ObjectReference akReference)
