@@ -1,0 +1,13 @@
+{
+	"stringList" : 
+	{
+		"requirements":
+		[
+			
+		],
+		"stages" : 
+		[
+			"actors\\character\\overlays\\default.dds"
+		]
+    }
+}

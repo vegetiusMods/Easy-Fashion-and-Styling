@@ -1,0 +1,20 @@
+{
+	"string" : 
+	{
+		"preventaccessundergarment" : "Crotch"
+	},
+	"form" : 
+	{
+		"shavingidle" : "0xd8735|Skyrim.esm"
+	},
+	"stringList" : 
+	{
+		"preventaccesskeywords" : 
+		[
+			"zad_DeviousBelt",
+			"zad_DeviousHeavyBondage",
+			"zad_DeviousYoke",
+			"zad_DeviousArmbinder"
+		]
+	}
+}

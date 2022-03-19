@@ -1,6 +1,8 @@
 Scriptname EFSzModule extends Quest
 
+EFS0MainQuest Property Main Auto
 string Property ModuleName Auto
+bool Property FlaggedForRefresh Auto
 
 bool Function IsModuleStarted()
     return GetState() == "Started"
@@ -10,14 +12,46 @@ Function Toggle()
     GoToState("Started")
 EndFunction
 
-Function LoadModule()
+Function LoadModule(int loadedVersion)
 
 EndFunction
 
-Function RefreshModule()
+Function RefreshModule(bool force)
+    if (force || FlaggedForRefresh)
+        DoRefresh()
+    endif
+    FlaggedForRefresh = false
+EndFunction
+
+State Stopping
+    Event OnBeginState()
+        GoToState("")
+    EndEvent
+
+    Event OnEndState()
+        CleanModule()
+    EndEvent
+EndState
+
+Function CleanModule()
 
 EndFunction
 
-string Function GetFilePath(string fileName)
-    return "../Easy Fashion and Styling/" + ModuleName + "/" + fileName
+Function DoRefresh()
+
+EndFunction
+
+Function ObjectEquipped(Actor target, Form akBaseObject, ObjectReference akReference)
+EndFunction
+
+Function ObjectUnequipped(Actor target, Form akBaseObject, ObjectReference akReference)
+
+EndFunction
+
+string Function GetModuleFolderPath(bool relative = true)
+    return Main.GetPluginFolderPath(relative) + ModuleName + "/"
+EndFunction
+
+string Function GetFilePath(string fileName, bool relative = true)
+    return GetModuleFolderPath(relative) + fileName
 EndFunction
