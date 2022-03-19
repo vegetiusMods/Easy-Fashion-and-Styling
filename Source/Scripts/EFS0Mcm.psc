@@ -178,10 +178,11 @@ EndState
 ; Body hair
 
 int Id2BHOutfitRestrictAccess
-int Id2BHDaysForGrowthDefault
 int Id2BHUndergarmentsIntegration
+int Id2BHProgressiveGrowth
 int[] Id2BHAreasPresets
 int[] Id2BHAreasStages
+int[] Id2BHDaysForGrowth
 
 int BHcurrentAreaIndex
 string[] BHcurrentPresets
@@ -190,8 +191,8 @@ State BodyHair
     Event OnBeginState()
         IdModuleActive = AddToggleOption("Module active", BodyHairModule.IsModuleStarted())
         Id2BHOutfitRestrictAccess = AddToggleOption("Outfit restrict access", BodyHairModule.OutfitRestrictAccess)
-        ; Id2BHDaysForGrowthDefault = AddSliderOption("Days for growth",  BodyHairModule.DaysForGrowthDefault)
         Id2BHUndergarmentsIntegration = AddToggleOption("Undergarments integration", BodyHairModule.UndergarmentsIntegration)
+        Id2BHProgressiveGrowth = AddToggleOption("Progressive growth interval", BodyHairModule.ProgressiveGrowth)
 
         AddHeaderOption(BodyHairModule.BodyHairAreas[0])
         AddHeaderOption(BodyHairModule.BodyHairAreas[1])
@@ -199,6 +200,10 @@ State BodyHair
         Id2BHAreasPresets = new int[2]
         Id2BHAreasPresets[0] = AddMenuOption("Preset", BodyHairModule.BodyHairAreasPresets[0])
         Id2BHAreasPresets[1] = AddMenuOption("Preset", BodyHairModule.BodyHairAreasPresets[1])
+
+        Id2BHDaysForGrowth = new int[2]
+        Id2BHDaysForGrowth[0] = AddSliderOption("Days for growth",  BodyHairModule.DaysForGrowth[0])
+        Id2BHDaysForGrowth[1] = AddSliderOption("Days for growth",  BodyHairModule.DaysForGrowth[1])
     endevent
 
     Event OnOptionHighlight(int option)
@@ -206,10 +211,14 @@ State BodyHair
             SetInfoText("Toggle this module on/off.")
         elseif (option == Id2BHOutfitRestrictAccess)
             SetInfoText("If active, wearing armor while prevent you from shaving.")
-        elseif (option == Id2BHDaysForGrowthDefault)
-            SetInfoText("Number of days between each growth stage. Does not impact performance, so set to your liking.")
         elseif (option == Id2BHUndergarmentsIntegration)
             SetInfoText("If this and 'Outfit restrict access' are active, wearing undergarments will also prevent you from shaving.")
+        elseif (option == Id2BHProgressiveGrowth)
+            SetInfoText("If checked, for each stage the interval for growth will be increased by your current stage (Interval = Base Value + Current Stage).")
+        elseif (Id2BHAreasPresets.Find(option) >= 0)
+            SetInfoText("Growth preset to use for this area.")
+        elseif (Id2BHDaysForGrowth.Find(option) >= 0)
+            SetInfoText("Number of days between each growth stage. Does not impact performance, so set to your liking.")
         endif
     EndEvent
 
@@ -223,19 +232,24 @@ State BodyHair
         elseif (OptionID == Id2BHUndergarmentsIntegration)
             BodyHairModule.UndergarmentsIntegration = !BodyHairModule.UndergarmentsIntegration
             SetToggleOptionValue(Id2BHUndergarmentsIntegration, BodyHairModule.UndergarmentsIntegration)
+        elseif (OptionID == Id2BHProgressiveGrowth)
+            BodyHairModule.ProgressiveGrowth = !BodyHairModule.ProgressiveGrowth
+            SetToggleOptionValue(Id2BHProgressiveGrowth, BodyHairModule.ProgressiveGrowth)
         endif
     EndEvent
 
     Event OnOptionSliderOpen(int OptionID)
-        if (OptionID == Id2BHDaysForGrowthDefault)
-            ; SetSliderOptions(BodyHairModule.DaysForGrowthDefault, BodyHairModule.DaysForGrowthDefault, 0, 30, 1)
+        int index = Id2BHDaysForGrowth.Find(OptionID)
+        if (index >= 0)
+            SetSliderOptions(BodyHairModule.DaysForGrowth[index], BodyHairModule.DaysForGrowth[index], 0, 30, 1)
         endif
     EndEvent
 
     Event OnOptionSliderAccept(int optionid, float value)
-        if (OptionID == Id2BHDaysForGrowthDefault)
-            ; BodyHairModule.DaysForGrowthDefault = value as int
-            SetSliderOptionValue(Id2BHDaysForGrowthDefault, value)
+        int index = Id2BHDaysForGrowth.Find(OptionID)
+        if (index >= 0)
+            BodyHairModule.DaysForGrowth[index] = value as int
+            SetSliderOptionValue(optionid, value)
             BodyHairModule.FlaggedForRefresh = true
         endif
     EndEvent

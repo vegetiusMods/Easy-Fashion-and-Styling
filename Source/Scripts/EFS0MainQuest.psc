@@ -22,6 +22,10 @@ string fullMcmConfigLocation = "data/skse/plugins/Easy Fashion and Styling/Mcm/"
 string relativeMcmConfigLocation = "../Easy Fashion and Styling/Mcm/"
 string defaultConfigFileName = "default"
 
+string jmainFile = "config"
+string jconcealSlotsKey = "concealSlots"
+string jconcealKeywordsKey = "concealKeywords"
+
 ; Init and mod lifecycle
 Event OnInit()
     LoadedVersion = 0
@@ -51,7 +55,8 @@ Function Load(bool firstStart = false)
     If (firstStart)
         LoadDefaultConfig()
     Else
-        RefreshAll(force = true)
+        ; We do not want to force refresh all mods !!!
+        RefreshAll(force = false)
     EndIf
 
     LoadedVersion = currentVer
@@ -143,8 +148,12 @@ Function SaveConfig(string fileName)
     ; 2 - Body Hair
     JsonUtil.SetIntValue(filePath, "Id2ModuleActive", BodyHairModule.IsModuleStarted() as int)
     JsonUtil.SetIntValue(filePath, "Id2BHOutfitRestrictAccess", BodyHairModule.OutfitRestrictAccess as int)
-    JsonUtil.SetIntValue(filePath, "Id2BHDaysForGrowthDefault", BodyHairModule.DaysForGrowthDefault)
     JsonUtil.SetIntValue(filePath, "Id2BHUndergarmentsIntegration", BodyHairModule.UndergarmentsIntegration as int)
+    JsonUtil.SetIntValue(filePath, "Id2BHProgressiveGrowth", BodyHairModule.ProgressiveGrowth as int)
+
+    JsonUtil.IntListClear(filePath, "Id2BHDaysForGrowth")
+    JsonUtil.IntListAdd(filePath, "Id2BHDaysForGrowth", BodyHairModule.DaysForGrowth[0])
+    JsonUtil.IntListAdd(filePath, "Id2BHDaysForGrowth", BodyHairModule.DaysForGrowth[1])
 
     JsonUtil.StringListClear(filePath, "Id2BHAreasPresets")
     JsonUtil.StringListAdd(filePath, "Id2BHAreasPresets", BodyHairModule.BodyHairAreasPresets[0])
@@ -179,14 +188,74 @@ Function LoadConfig(string fileName)
 
         ; 2 - Body Hair
         BodyHairModule.OutfitRestrictAccess = JsonUtil.GetIntValue(filePath, "Id2BHOutfitRestrictAccess") as bool
-        BodyHairModule.DaysForGrowthDefault = JsonUtil.GetIntValue(filePath, "Id2BHDaysForGrowthDefault")
         BodyHairModule.UndergarmentsIntegration = JsonUtil.GetIntValue(filePath, "Id2BHUndergarmentsIntegration") as bool
+        BodyHairModule.ProgressiveGrowth = JsonUtil.GetIntValue(filePath, "Id2BHProgressiveGrowth") as bool
 
         BodyHairModule.BodyHairAreasPresets[0] = JsonUtil.StringListGet(filePath, "Id2BHAreasPresets", 0)
         BodyHairModule.BodyHairAreasPresets[1] = JsonUtil.StringListGet(filePath, "Id2BHAreasPresets", 1)
 
+        BodyHairModule.DaysForGrowth[0] = JsonUtil.IntListGet(filePath, "Id2BHDaysForGrowth", 0)
+        BodyHairModule.DaysForGrowth[1] = JsonUtil.IntListGet(filePath, "Id2BHDaysForGrowth", 1)
+
         ToggleLoadModule(filePath, "Id2ModuleActive", BodyHairModule)
     endif
+EndFunction
+
+bool Function IsConcealing(Form obj)
+    Armor arm = obj as Armor
+    if (arm)
+        return EFSzUtil.HasOneSlot(arm, GetConcealSlots()) || EFSzUtil.HasOneKeyword(arm, GetConcealKeywords())
+    endIf
+
+    return false
+EndFunction
+
+bool Function IsConcealingWorn(Actor target)
+    int i = 0
+    int[] concealSlots = GetConcealSlots()
+    while (i < concealSlots.Length)
+        if (target.GetWornForm(Armor.GetMaskForSlot(concealSlots[i])) != none)
+            return true
+        endIf
+
+        i += 1
+    endWhile
+
+    i = 0
+    string[] concealKeywords = GetConcealKeywords()
+    while (i < concealKeywords.Length)
+        Keyword kwd = Keyword.GetKeyword(concealKeywords[i])
+        if (kwd && target.WornHasKeyword(kwd))
+            return true
+        endIf
+
+        i += 1
+    endWhile
+
+    return false
+EndFunction
+
+int[] Function GetConcealSlots()
+    return JSonUtil.IntListToArray(GetFilePath(jmainFile), jconcealSlotsKey)
+EndFunction
+
+string[] Function GetConcealKeywords()
+    return JSonUtil.StringListToArray(GetFilePath(jmainFile), jconcealKeywordsKey)
+EndFunction
+
+string Function GetPluginFolderPath(bool relative = true)
+    string root
+    if (relative)
+        root = ".."
+    else
+        root = "data/skse/plugins"
+    endif
+
+    return root + "/Easy Fashion and Styling/" 
+EndFunction
+
+string Function GetFilePath(string fileName, bool relative = true)
+    return GetPluginFolderPath(relative) + fileName
 EndFunction
 
 Function LoadDefaultConfig()

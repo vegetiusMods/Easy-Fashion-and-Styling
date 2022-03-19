@@ -49,14 +49,7 @@ Function ObjectUnequipped(Actor target, Form akBaseObject, ObjectReference akRef
 EndFunction
 
 string Function GetModuleFolderPath(bool relative = true)
-    string root
-    if (relative)
-        root = ".."
-    else
-        root = "data/skse/plugins"
-    endif
-
-    return root + "/Easy Fashion and Styling/" + ModuleName + "/"
+    return Main.GetPluginFolderPath(relative) + ModuleName + "/"
 EndFunction
 
 string Function GetFilePath(string fileName, bool relative = true)

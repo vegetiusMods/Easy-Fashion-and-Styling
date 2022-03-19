@@ -2,6 +2,7 @@ Scriptname EFS1Undergarments extends EFSzModule
 ; TODO LIST
 ; MCM interactions
 ; Ignore kw list (DD)
+; TODO Breaking chances ?
 String[] Property UndergarmentsList  Auto  
 Int[] Property UndergarmentsSlots  Auto  
 
@@ -10,11 +11,10 @@ bool Property ConcealingPreventInteract = true Auto
 
 ; JSON
 string jmainFile = "config"
-string jconcealSlotsKey = "concealSlots"
-string jconcealKeywordsKey = "concealKeywords"
 string jignoreKeywordsKey = "ignoreKeywords"
 string jliveSaveFile = "tmp"
 string jconcealedArmorsKey = "concealedArmors"
+string jconcealedArmorsSlotsKey = "concealedArmorsSlots"
 
 Event OnInit()
     ModuleName = "Undergarments"
@@ -32,7 +32,7 @@ State Started
 
         while (i < Main.GetManagedActors().Length)
             Actor player = Main.GetManagedActors()[i]
-            bool concealingWorn = IsConcealingWorn(player)
+            bool concealingWorn = Main.IsConcealingWorn(player)
 
             EFSzUtil.log("Concealing worn: " + concealingWorn)
             ; Reveal all conceled
@@ -50,12 +50,12 @@ State Started
 
     Function ObjectEquipped(Actor target, Form akBaseObject, ObjectReference akReference)
         ; Check if masking
-        if (IsConcealing(akBaseObject))
+        if (Main.IsConcealing(akBaseObject))
             EFSzUtil.log("Equipped a concealing armor")
             if (ConcealAll(target, RefreshEquip = false))
                 RefreshEquip(target, akBaseObject)
             endif
-        elseif (IsConcealable(akBaseObject) && IsConcealingWorn(target) && !IsConcealed(akBaseObject))
+        elseif (IsConcealable(akBaseObject) && Main.IsConcealingWorn(target) && !IsConcealed(akBaseObject))
             If (ConcealingPreventInteract)
                 EFSzUtil.log("Equipping concealable item but concealing armor prevents it")
                 target.UnequipItem(akBaseObject, abSilent = true)
@@ -73,24 +73,42 @@ State Started
 
     Function ObjectUnequipped(Actor target, Form akBaseObject, ObjectReference akReference)
         if (IsConcealed(akBaseObject) && !target.IsEquipped(akBaseObject))
-            If (ConcealingPreventInteract && IsConcealingWorn(target))
+            If (ConcealingPreventInteract && Main.IsConcealingWorn(target))
                 target.EquipItem(akBaseObject, abSilent = true)
                 Debug.MessageBox("Your worn outfit prevents you from removing this undergarment.")
             Else
                 EFSzUtil.log("Unequipping concealed item, revealing")
                 Reveal(target, akBaseObject as Armor)
             EndIf
-        elseif (IsConcealing(akBaseObject) && !IsConcealingWorn(target))
+        elseif (Main.IsConcealing(akBaseObject) && !Main.IsConcealingWorn(target))
             EFSzUtil.log("Unequipping concealing armor, revealing all")
             RevealAll(target)
-        elseif (IsConcealable(akBaseObject) && IsConcealingWorn(target) && !IsConcealed(akBaseObject))
+        elseif (IsConcealable(akBaseObject) && Main.IsConcealingWorn(target) && !IsConcealed(akBaseObject))
             Conceal(target, akBaseObject as Armor, false)
             target.EquipItem(akBaseObject, abSilent = true)
         endif
     EndFunction
+
+    ; Only checks for visible undergarments
+    bool Function IsVisibleUndergarmentWorn(Actor target, string undergarmentType)
+        if (undergarmentType == "")
+            return false
+        endif
+
+        int undergarmentTypeIndex = UndergarmentsList.Find(undergarmentType)
+        if (undergarmentTypeIndex < 0)
+            EFSzUtil.log("Checking if target is wearing an undergarment type, but said type is unknown: " + undergarmentType)
+            return false
+        endIf
+
+        return target.GetWornForm(Armor.GetMaskForSlot(UndergarmentsSlots[undergarmentTypeIndex]))
+    EndFunction
 EndState
 
 Function LoadModule(int loadedVersion)
+    ; Should always refresh on load
+    FlaggedForRefresh = true
+
     if (loadedVersion < EFSzUtil.Get02AlphaVersion())
         UndergarmentsList = new string[5]
         UndergarmentsList[0] = "Breast"
@@ -114,7 +132,7 @@ Function LoadModule(int loadedVersion)
         UndergarmentsConcealable[4] = false
 
         FlaggedForRefresh = false
-
+        
         Toggle()
     endif
 EndFunction
@@ -128,42 +146,8 @@ Function CleanModule()
     EndWhile
 EndFunction
 
-bool Function IsConcealing(Form obj)
-    Armor arm = obj as Armor
-    if (arm)
-        return EFSzUtil.HasOneSlot(arm, GetConcealSlots()) || HasOneKeyword(arm, GetConcealKeywords())
-    endIf
-
-    return false
-EndFunction
-
-bool Function IsConcealingWorn(Actor target)
-    int i = 0
-    int[] concealSlots = GetConcealSlots()
-    while (i < concealSlots.Length)
-        if (target.GetWornForm(Armor.GetMaskForSlot(concealSlots[i])) != none)
-            return true
-        endIf
-
-        i += 1
-    endWhile
-
-    i = 0
-    string[] concealKeywords = GetConcealKeywords()
-    while (i < concealKeywords.Length)
-        Keyword kwd = Keyword.GetKeyword(concealKeywords[i])
-        if (kwd && target.WornHasKeyword(kwd))
-            return true
-        endIf
-
-        i += 1
-    endWhile
-
-    return false
-EndFunction
-
 bool Function IsConcealable(Form obj)
-    return HasConcealableSlot(obj) && !HasOneKeyword(obj as Armor, GetIgnoreKeywords())
+    return HasConcealableSlot(obj) && !EFSzUtil.HasOneKeyword(obj as Armor, GetIgnoreKeywords())
 EndFunction
 
 bool Function HasConcealableSlot(Form obj)
@@ -199,7 +183,7 @@ Function Conceal(Actor target, Armor akArmor, bool refreshEquip = true)
         
         if (UndergarmentsConcealable[i])
             int slotmask = Armor.GetMaskForSlot(UndergarmentsSlots[i])
-            if (EFSzUtil.HasSlotMask(akArmor, slotmask) && !IsConcealing(akArmor))
+            if (EFSzUtil.HasSlotMask(akArmor, slotmask) && !Main.IsConcealing(akArmor))
                 slotMaskToRemove = akArmor.GetSlotMask()
                 break = true
             EndIf
@@ -237,7 +221,7 @@ bool Function ConcealAll(Actor target, bool refreshEquip = true)
         if (UndergarmentsConcealable[i])
             int slotmask = Armor.GetMaskForSlot(UndergarmentsSlots[i])
             Armor toConceal = target.GetWornForm(slotmask) as Armor
-            if (toConceal && !IsConcealing(toConceal))
+            if (toConceal && !Main.IsConcealing(toConceal))
                 EFSzUtil.log("Found concealable armor " + toConceal + " in slot " + UndergarmentsSlots[i] + ", concealing")
                 Conceal(target, toConceal, refreshEquip = refreshEquip)
                 concealed = true
@@ -291,13 +275,6 @@ Function RevealAllWithOneCommonSlotAndUnequip(Actor target, Armor armorRef)
     endWhile
 EndFunction
 
-int[] Function GetConcealSlots()
-    return JSonUtil.IntListToArray(GetFilePath(jmainFile), jconcealSlotsKey)
-EndFunction
-
-string[] Function GetConcealKeywords()
-    return JSonUtil.StringListToArray(GetFilePath(jmainFile), jconcealKeywordsKey)
-EndFunction
 
 string[] Function GetIgnoreKeywords()
     return JSonUtil.StringListToArray(GetFilePath(jmainFile), jignoreKeywordsKey)
@@ -310,7 +287,7 @@ EndFunction
 int Function GetConcealedArmorOriginalSlotmask(Form akArmor)
     int index = JSonUtil.FormListFind(GetFilePath(jliveSaveFile), jconcealedArmorsKey, akArmor)
     if (index > -1)
-        return JSonUtil.IntListGet(GetFilePath(jliveSaveFile), jconcealSlotsKey, index)
+        return JSonUtil.IntListGet(GetFilePath(jliveSaveFile), jconcealedArmorsSlotsKey, index)
     endIf
     return 0
 EndFunction
@@ -318,7 +295,7 @@ EndFunction
 Function Hide(Armor akArmor)
     int slotmask = akArmor.GetSlotMask()
     JsonUtil.FormListAdd(GetFilePath(jliveSaveFile), jconcealedArmorsKey, akArmor)
-    JsonUtil.IntListAdd(GetFilePath(jliveSaveFile), jconcealSlotsKey, slotmask)
+    JsonUtil.IntListAdd(GetFilePath(jliveSaveFile), jconcealedArmorsSlotsKey, slotmask)
     JsonUtil.Save(GetFilePath(jliveSaveFile))
     akArmor.RemoveSlotFromMask(slotmask)
 EndFunction
@@ -326,27 +303,19 @@ EndFunction
 Function Unhide(Armor akArmor)
     int index = JsonUtil.FormListFind(GetFilePath(jliveSaveFile), jconcealedArmorsKey, akArmor)
     if (index > -1)
-        int originalSlotmaks = JSonUtil.IntListGet(GetFilePath(jliveSaveFile), jconcealSlotsKey, index)
+        int originalSlotmaks = JSonUtil.IntListGet(GetFilePath(jliveSaveFile), jconcealedArmorsSlotsKey, index)
         JsonUtil.FormListRemoveAt(GetFilePath(jliveSaveFile), jconcealedArmorsKey, index)
-        JsonUtil.IntListRemoveAt(GetFilePath(jliveSaveFile), jconcealSlotsKey, index)
+        JsonUtil.IntListRemoveAt(GetFilePath(jliveSaveFile), jconcealedArmorsSlotsKey, index)
         JsonUtil.Save(GetFilePath(jliveSaveFile))
         akArmor.AddSlotToMask(originalSlotmaks)
     endif
 EndFunction
 
-bool Function HasOneKeyword(Armor akArmor, String[] keywords)
-    int i = 0
-    while (i < keywords.Length)
-        if (akArmor.HasKeywordString(keywords[i]))
-            return true
-        endIf
-        i += 1
-    EndWhile
-
-    return false
-EndFunction
-
 Function RefreshEquip(Actor target, Form item)
     target.UnequipItem(item, abSilent = true)
     target.EquipItem(item, abSilent = true)
+EndFunction
+
+bool Function IsVisibleUndergarmentWorn(Actor target, string undergarmentType)
+    return false
 EndFunction

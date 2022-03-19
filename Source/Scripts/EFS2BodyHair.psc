@@ -9,18 +9,34 @@ string areaConfigFileName = "config"
 
 string sLastUpdateDayKeyPrefix = "EFS_BH_LastUpdateDay_"
 string sCurrentAreaStageKeyPrefix = "EFS_BH_CurrentAreaStage_"
-string sOverlayNodeStorageKeyPrefix = "EFS_OverlayNode_"
+string sOverlayNodeStorageKeyPrefix = "EFS_BH_OverlayNode_"
+string sCurrentTrimmingPrefix = "EFS_BH_CurrentTrimming_"
 
 string jStagesKey = "stages"
 
+string creamKeywordPrefix = "EFS_ShavingCream"
+
+; Shaving menu
+string chooseTrimmingMsg = "[Choose a trimming]"
+string lastTrimmingButtonPre = "[Last: "
+string lastTrimmingButtonSu = "]"
+string cleanlyShavedButton = "Cleanly Shaven"
+string cancelBtn = "[Cancel]"
+
 ; Properties
-Sound Property EFSShaving Auto
 String[] Property BodyHairAreas  Auto  
 String[] Property BodyHairAreasPresets  Auto  
+Int[] Property DaysForGrowth  Auto  
 
 Bool Property UndergarmentsIntegration  Auto  
 Bool Property OutfitRestrictAccess  Auto  
 Bool Property ProgressiveGrowth  Auto  
+
+Sound Property EFSShaving Auto
+Idle Property IdleStop  Auto  
+
+; Fields
+string[] AreasLastTrimmings
 
 Event OnInit()
     ModuleName = "Body Hair"
@@ -36,7 +52,12 @@ Function LoadModule(int loadedVersion)
         BodyHairAreasPresets[0] = GetPresetsNames(true, BodyHairAreas[0])[0]
         BodyHairAreasPresets[1] = GetPresetsNames(true, BodyHairAreas[1])[0]
 
-        ; DaysForGrowthDefault = 2
+        DaysForGrowth = new Int[2]
+        DaysForGrowth[0] = 2
+        DaysForGrowth[1] = 2
+
+        AreasLastTrimmings = new String[2]
+
         UndergarmentsIntegration = true
         OutfitRestrictAccess = true
 
@@ -115,26 +136,27 @@ State Started
             return
         endIf
     
-        int daysPassed = gameDaysPassedValue - StorageUtil.GetIntValue(target, sLastUpdateDayKeyPrefix + areaName, missing = 0)
-
         int zoneStage = GetAreaStage(target, areaName)
-    
-        ; if (daysPassed >= DaysForGrowthDefault)
-        ;     StorageUtil.SetIntValue(target, sLastUpdateDayKeyPrefix + areaName, gameDaysPassedValue)
-        ;     ; Update stage
-        ;     EFSzUtil.log(daysPassed + " days passed, it is greater than or equal to " + DaysForGrowthDefault + ", " + areaName + " hair has grown")
-        ;     int maxStage = GetMaxAreaStage(target, areaName)
-        ;     EFSzUtil.log("Current: " + zoneStage + " Max: " + maxStage)
-        ;     if(zoneStage < maxStage)
-        ;         zoneStage += 1
+        int daysPassed = GetDaysPassedArea(target, areaName, gameDaysPassedValue)
+        int daysForGrowthArea = GetDaysForGrowth(target, areaIndex, zoneStage)
 
-        ;         ApplyZoneStage(target, areaName, zoneStage, maxStage)
+        if (daysPassed >= daysForGrowthArea)
+            StorageUtil.SetIntValue(target, sLastUpdateDayKeyPrefix + areaName, gameDaysPassedValue)
+            ; Update stage
+            EFSzUtil.log(daysPassed + " days passed, it is greater than or equal to " + daysForGrowthArea + ", " + areaName + " hair has grown")
+            int maxStage = GetMaxAreaStage(target, areaName)
+            EFSzUtil.log("Current: " + zoneStage + " Max: " + maxStage)
+            if(zoneStage < maxStage)
+                zoneStage += 1
 
-        ;         Debug.Notification("You notice your " + areaName + " hair has grown")
-        ;     endIf
-        ; else
-        ;     EFSzUtil.log(daysPassed + " days passed, it is lesser than " + DaysForGrowthDefault + ", no " + areaName + " hair growth")
-        ; endIf
+                ApplyZoneStage(target, areaName, zoneStage, maxStage)
+
+                StorageUtil.UnsetStringValue(target, sCurrentTrimmingPrefix + areaName)
+                Debug.Notification("You notice your " + areaName + " hair has grown")
+            endIf
+        else
+            EFSzUtil.log(daysPassed + " days passed, it is lesser than " + daysForGrowthArea + ", no " + areaName + " hair growth")
+        endIf
     EndFunction
 
     Function ApplyZoneStage(Actor target, String areaName, int desiredStage, int maxStage = -1, string pattern = "")
@@ -145,6 +167,11 @@ State Started
         if (desiredStage > maxStage)
             desiredStage = maxStage
         endIf
+
+        if pattern == ""
+            pattern = JsonUtil.StringListGet(GetActivePresetFile(target, areaName), jStagesKey, desiredStage)
+        endIf
+
         EFSzUtil.log("Current: " + desiredStage + " Max: " + maxStage)
         StorageUtil.SetIntValue(target, sCurrentAreaStageKeyPrefix + areaName, desiredStage)
     
@@ -158,10 +185,209 @@ State Started
     
         ; Update overlay
         if texture == ""
-            texture = JsonUtil.StringListGet(GetActivePresetFile(target, areaName), jStagesKey, desiredStage)
+            if (StorageUtil.HasStringValue(target, sCurrentTrimmingPrefix + areaName))
+                texture = JsonUtil.GetStringValue(GetTrimmingFile(target, areaName, StorageUtil.GetStringValue(target, sCurrentTrimmingPrefix + areaName)), "texture")
+            endif
+            if texture == ""
+                texture = JsonUtil.StringListGet(GetActivePresetFile(target, areaName), jStagesKey, desiredStage)
+            endif
         endIf
 
         EFSzUtil.ApplyTexture(target, "EFS_Node_BodyHair_" + areaName, texture, target.GetActorBase().GetHairColor().GetColor())
+    EndFunction
+
+    bool Function IsAreaAccessible(Actor target, int areaIndex)
+        If(Main.IsConcealingWorn(target))
+            EFSzUtil.log("Wearing concealing armor, area not accessible")
+            return false
+        endif
+
+        string areaname = GetAreaName(areaIndex)
+        String[] preventKeywordsJson = JsonUtil.StringListToArray(GetConfigFile(target, areaname), "preventaccesskeywords")
+        int i = 0
+        While (i < preventKeywordsJson.Length)
+            Keyword k = Keyword.GetKeyWord(preventKeywordsJson[i])
+            if (k && target.WornHasKeyword(k))
+                EFSzUtil.log("Can't access to area.")
+                return false
+            endif
+            i += 1
+        EndWhile
+
+        string undergarmentPreventAccessType = JsonUtil.GetStringValue(GetConfigFile(target, areaname), "preventaccessundergarment")
+        if (UndergarmentsIntegration && UndergarmentsModule.IsVisibleUndergarmentWorn(target, undergarmentPreventAccessType))
+            EFSzUtil.log("Undergarments prevent access to area.")
+            return false
+        endif
+    
+        return true
+    EndFunction
+
+    bool Function ApplyCream(Actor target, int areaIndex, Spell creamSpell)
+        Game.DisablePlayerControls(true, true, true, false, true, true, true, true)
+        Game.ForceThirdPerson()
+
+        ; Shaving
+        Idle shavingIddle = JsonUtil.GetFormValue(GetConfigFile(target, GetAreaName(areaIndex)), "shavingIdle") as Idle
+            
+        If target.IsWeaponDrawn()
+            target.SheatheWeapon()
+            Utility.Wait(1.500000)
+        Else
+            Utility.Wait(0.200000)
+        EndIf
+
+        target.PlayIdle(shavingIddle)
+        Utility.Wait(1.0)
+        creamSpell.Cast(target, target)
+        Utility.Wait(4.0)
+        target.PlayIdle(IdleStop)
+        Utility.Wait(0.500000)
+
+        Game.EnablePlayerControls()
+    EndFunction
+
+    bool Function Shave(Actor target, int areaIndex)
+        string areaName = GetAreaName(areaIndex)
+        if (!target.HasMagicEffectWithKeyword(Keyword.GetKeyword(creamKeywordPrefix + areaName)))
+            Debug.MessageBox("You must first apply cream on an area in order to save it.")
+            return false
+        endif
+    
+        Game.DisablePlayerControls(true, true, true, false, true, true, true, true)
+        Game.ForceThirdPerson()
+    
+        ; Pattern selection
+        int newStage = 0
+        int currentStage = GetAreaStage(target, areaName)
+    
+        String trimming = ""
+        String texture = ""
+        String[] trimmings = GetTrimmingsNames(target, areaName)
+    
+        if (trimmings.Length > 0)
+            UIListMenu trimmingMenu = uiextensions.GetMenu("UIListMenu") as UIListMenu
+    
+            trimmingMenu.AddEntryItem(chooseTrimmingMsg)
+    
+            bool lastUsedFound = false
+            int iTrimming = 0
+            int addedTrimmings = 0
+            while iTrimming < trimmings.Length
+                if (JsonUtil.GetIntValue(GetTrimmingFile(target, areaName, trimmings[iTrimming]), "stage") < currentStage)
+                    addedTrimmings += 1
+                    EFSzUtil.log(AreasLastTrimmings[areaIndex] + ":" + trimmings[iTrimming])
+                    if AreasLastTrimmings[areaIndex] == trimmings[iTrimming]
+                        lastUsedFound = true
+                    endIf
+                else
+                    trimmings[iTrimming] = ""
+                endIf
+                iTrimming += 1
+            endWhile
+    
+            if (lastUsedFound)
+                trimmingMenu.AddEntryItem(lastTrimmingButtonPre + AreasLastTrimmings[areaIndex] + lastTrimmingButtonSu)
+            endIf
+    
+            if BodyHairAreasPresets[areaIndex] != ""
+                trimmingMenu.AddEntryItem(cleanlyShavedButton)
+            endIf
+    
+            if (addedTrimmings > 0)
+                iTrimming = 0
+                while iTrimming < trimmings.Length
+                    if (trimmings[iTrimming] != "")
+                        trimmingMenu.AddEntryItem(trimmings[iTrimming])
+                    endIf
+                    iTrimming += 1
+                endWhile
+            endIf
+            
+            EFSzUtil.log(addedTrimmings + " found for stage " + currentStage)
+    
+            if (addedTrimmings > 0)
+                trimmingMenu.AddEntryItem(cancelBtn)
+    
+                trimmingMenu.OpenMenu(none)
+                trimming = trimmingMenu.GetResultString()
+    
+                if trimming == chooseTrimmingMsg || trimming == cancelBtn
+                    Game.EnablePlayerControls()
+                    return false
+                elseif StringUtil.Find(trimming, lastTrimmingButtonPre) > -1
+                    trimming = AreasLastTrimmings[areaIndex]
+                elseif trimming != cleanlyShavedButton
+                    AreasLastTrimmings[areaIndex] = trimming
+                endIf
+                
+                string trimmingFile = GetTrimmingFile(target, areaName, trimming)
+                EFSzUtil.log("Chosen trimming file: " + trimmingFile)
+                texture = JsonUtil.GetStringValue(trimmingFile, "texture")
+                newStage = JsonUtil.GetIntValue(trimmingFile, "stage")
+            endIf
+        endIf
+    
+        ; Shaving
+        Idle shavingIddle = JsonUtil.GetFormValue(GetConfigFile(target, areaName), "shavingIdle") as Idle
+    
+        If target.IsWeaponDrawn()
+            target.SheatheWeapon()
+            Utility.Wait(1.500000)
+        Else
+            Utility.Wait(0.200000)
+        EndIf
+        
+        target.PlayIdle(shavingIddle)
+        EFSShaving.Play(target)
+        Utility.Wait(1.0)
+        EFSShaving.Play(target)
+        RemoveCreamSpells[areaIndex].Cast(target, target)
+        ApplyZoneStage(target, areaName, newStage, GetMaxAreaStage(target, areaName), texture)
+        StorageUtil.SetIntValue(target, sLastUpdateDayKeyPrefix + areaName, Main.GameDaysPassed.GetValueInt())
+        Utility.Wait(1.0)
+        EFSShaving.Play(target)
+        Utility.Wait(4.0)
+        target.PlayIdle(IdleStop)
+        if(texture == "")
+            StorageUtil.UnsetStringValue(target, sCurrentTrimmingPrefix + areaName)
+            Debug.Notification("You have cleanly shaved your " + areaName)
+        Else
+            StorageUtil.SetStringValue(target, sCurrentTrimmingPrefix + areaName, trimming)
+            Debug.Notification("You have trimmed your " + areaName)
+        endIf
+        Utility.Wait(0.500000)
+    
+        Game.EnablePlayerControls()
+        return true
+    EndFunction
+
+    String Function GetStatus(Actor target)
+        int gameDaysPassedValue = Main.GameDaysPassed.GetValueInt()
+        string statusMessage = "--- Body Hair ---"
+        
+        int i = 0
+        while (i < BodyHairAreas.length)
+            string areaName = GetAreaName(i)
+            statusMessage += "\n- " + areaName + " -"
+            if (IsAreaAccessible(target, i))
+                int zoneStage = GetAreaStage(target, areaName)
+                statusMessage += "\nStage: " + zoneStage + " on " + GetMaxAreaStage(target, areaName)
+                string trimming = StorageUtil.GetStringValue(target, sCurrentTrimmingPrefix + areaName)
+                if (trimming != "")
+                    statusMessage += " (" + trimming + ")"
+                endif
+                int daysPassed = GetDaysPassedArea(target, areaName, gameDaysPassedValue)
+                int daysForGrowthArea = GetDaysForGrowth(target, i, zoneStage)
+                statusMessage += "\nDays before next: " + (daysForGrowthArea - daysPassed)
+            else
+                statusMessage += "\n?\n?"
+            endif
+
+            i += 1
+        endwhile
+
+        return statusMessage
     EndFunction
 EndState
 
@@ -203,6 +429,22 @@ Function ApplyZoneStage(Actor target, String areaName, int desiredStage, int max
 EndFunction
 
 Function RefreshZoneOverlay(Actor target, string areaName, int desiredStage = -1, string texture = "")
+EndFunction
+
+bool Function IsAreaAccessible(Actor target, int areaIndex)
+    return false
+EndFunction
+
+bool Function ApplyCream(Actor target, int areaIndex, Spell creamSpell)
+
+EndFunction
+
+bool Function Shave(Actor target, int areaIndex)
+
+EndFunction
+
+string Function GetAreaName(int areaIndex)
+    return BodyHairAreas[areaIndex]
 EndFunction
 
 int Function GetAreaIndex(string areaName)
@@ -281,4 +523,28 @@ string Function GetActivePresetFile(Actor target, string areaName, bool relative
     endIf
     ;log("ActivePresetFile: " + presetFile)
     return presetFile
+EndFunction
+
+string Function GetConfigFile(Actor target, string areaName)
+    ;log("AreaConfigFile: " + GetAreaFolder(areaName) + "config")
+    return GetAreaFolder(target, areaName) + "config"
+EndFunction
+EFS1Undergarments Property UndergarmentsModule  Auto  
+SPELL[] Property RemoveCreamSpells  Auto  
+
+int Function GetDaysForGrowth(Actor target, int areaIndex, int zoneStage)
+    int daysForGrowthArea = DaysForGrowth[areaIndex]
+    If ProgressiveGrowth
+        daysForGrowthArea += zoneStage
+    EndIf
+
+    return daysForGrowthArea
+EndFunction
+
+int Function GetDaysPassedArea(Actor target, string areaName, int gameDaysPassedValue)
+    return gameDaysPassedValue - StorageUtil.GetIntValue(target, sLastUpdateDayKeyPrefix + areaName, missing = 0)
+EndFunction
+
+String Function GetStatus(Actor target)
+    return "--- Body Hair ---\nModule Disabled"
 EndFunction

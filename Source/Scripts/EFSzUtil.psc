@@ -55,6 +55,18 @@ bool Function HasSlotMask(Armor akArmor, int slotmask) global
     return Math.LogicalAnd(akArmor.GetSlotMask(), slotmask) == slotmask
 EndFunction
 
+bool Function HasOneKeyword(Armor akArmor, String[] keywords) global
+    int i = 0
+    while (i < keywords.Length)
+        if (akArmor.HasKeywordString(keywords[i]))
+            return true
+        endIf
+        i += 1
+    EndWhile
+
+    return false
+EndFunction
+
 ; NIO
 bool function IsDefaultOrEmptyTexture(string texturePath) global
     return texturePath == "" || StringUtil.Find(texturePath, "efault.dds") > -1
