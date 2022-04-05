@@ -32,7 +32,7 @@ State Started
 
         while (i < Main.GetManagedActors().Length)
             Actor player = Main.GetManagedActors()[i]
-            bool concealingWorn = Main.IsConcealingWorn(player)
+            bool concealingWorn = Main.IsBodyConcealingWorn(player)
 
             EFSzUtil.log("Concealing worn: " + concealingWorn)
             ; Reveal all conceled
@@ -50,12 +50,12 @@ State Started
 
     Function ObjectEquipped(Actor target, Form akBaseObject, ObjectReference akReference)
         ; Check if masking
-        if (Main.IsConcealing(akBaseObject))
+        if (Main.IsBodyConcealing(akBaseObject))
             EFSzUtil.log("Equipped a concealing armor")
             if (ConcealAll(target, RefreshEquip = false))
                 RefreshEquip(target, akBaseObject)
             endif
-        elseif (IsConcealable(akBaseObject) && Main.IsConcealingWorn(target) && !IsConcealed(akBaseObject))
+        elseif (IsConcealable(akBaseObject) && Main.IsBodyConcealingWorn(target) && !IsConcealed(akBaseObject))
             If (ConcealingPreventInteract)
                 EFSzUtil.log("Equipping concealable item but concealing armor prevents it")
                 target.UnequipItem(akBaseObject, abSilent = true)
@@ -73,17 +73,17 @@ State Started
 
     Function ObjectUnequipped(Actor target, Form akBaseObject, ObjectReference akReference)
         if (IsConcealed(akBaseObject) && !target.IsEquipped(akBaseObject))
-            If (ConcealingPreventInteract && Main.IsConcealingWorn(target))
+            If (ConcealingPreventInteract && Main.IsBodyConcealingWorn(target))
                 target.EquipItem(akBaseObject, abSilent = true)
                 Debug.MessageBox("Your worn outfit prevents you from removing this undergarment.")
             Else
                 EFSzUtil.log("Unequipping concealed item, revealing")
                 Reveal(target, akBaseObject as Armor)
             EndIf
-        elseif (Main.IsConcealing(akBaseObject) && !Main.IsConcealingWorn(target))
+        elseif (Main.IsBodyConcealing(akBaseObject) && !Main.IsBodyConcealingWorn(target))
             EFSzUtil.log("Unequipping concealing armor, revealing all")
             RevealAll(target)
-        elseif (IsConcealable(akBaseObject) && Main.IsConcealingWorn(target) && !IsConcealed(akBaseObject))
+        elseif (IsConcealable(akBaseObject) && Main.IsBodyConcealingWorn(target) && !IsConcealed(akBaseObject))
             Conceal(target, akBaseObject as Armor, false)
             target.EquipItem(akBaseObject, abSilent = true)
         endif
@@ -109,7 +109,8 @@ Function LoadModule(int loadedVersion)
     ; Should always refresh on load
     FlaggedForRefresh = true
 
-    if (loadedVersion < EFSzUtil.Get02AlphaVersion())
+    if (loadedVersion < EFSzUtil.Get02AlphaVersion() && !IsModuleStarted())
+        Log("First loading")
         UndergarmentsList = new string[5]
         UndergarmentsList[0] = "Breast"
         UndergarmentsList[1] = "Chest"
@@ -183,7 +184,7 @@ Function Conceal(Actor target, Armor akArmor, bool refreshEquip = true)
         
         if (UndergarmentsConcealable[i])
             int slotmask = Armor.GetMaskForSlot(UndergarmentsSlots[i])
-            if (EFSzUtil.HasSlotMask(akArmor, slotmask) && !Main.IsConcealing(akArmor))
+            if (EFSzUtil.HasSlotMask(akArmor, slotmask) && !Main.IsBodyConcealing(akArmor))
                 slotMaskToRemove = akArmor.GetSlotMask()
                 break = true
             EndIf
@@ -221,7 +222,7 @@ bool Function ConcealAll(Actor target, bool refreshEquip = true)
         if (UndergarmentsConcealable[i])
             int slotmask = Armor.GetMaskForSlot(UndergarmentsSlots[i])
             Armor toConceal = target.GetWornForm(slotmask) as Armor
-            if (toConceal && !Main.IsConcealing(toConceal))
+            if (toConceal && !Main.IsBodyConcealing(toConceal))
                 EFSzUtil.log("Found concealable armor " + toConceal + " in slot " + UndergarmentsSlots[i] + ", concealing")
                 Conceal(target, toConceal, refreshEquip = refreshEquip)
                 concealed = true

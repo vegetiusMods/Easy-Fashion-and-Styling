@@ -1,7 +1,11 @@
 Scriptname EFSzUtil
 
-function log(string in) global
-	MiscUtil.PrintConsole("Easy Fashion and Styling: " + In)
+function log(string in, string moduleName = "") global
+    if (moduleName != "")
+        MiscUtil.PrintConsole("Easy Fashion and Styling: " + moduleName + " module : " + In)
+    else
+        MiscUtil.PrintConsole("Easy Fashion and Styling: " + In)
+    endIf
 EndFunction
 
 bool Function IsFemale(Actor target) global
@@ -143,7 +147,16 @@ EndFunction
 Function ClearOverlay(Actor target, String node) global
     ; TODO Try RemoveAllNodeNameOverrides
     bool female = IsFemale(target)
+    log(NiOverride.GetNodeOverrideString(target, female, Node, 9, 0))
+    log(NiOverride.GetNodeOverrideString(target, female, Node, 9, 1))
+    log(NiOverride.GetNodeOverrideString(target, female, Node, 9, 2))
     NiOverride.AddNodeOverrideString(target, female, Node, 9, 0, "actors\\character\\overlays\\default.dds", false)
+    if NiOverride.HasNodeOverride(target, female, node, 9, 1)
+        NiOverride.AddNodeOverrideString(target, female, node, 9, 1, "actors\\character\\overlays\\default.dds", false)
+        Utility.Wait(0.01)
+        NiOverride.RemoveNodeOverride(target, female, node, 9, 1)
+        Utility.Wait(0.01)
+    endif
 	NiOverride.RemoveNodeOverride(target, female, node , 9, 0)
 	NiOverride.RemoveNodeOverride(target, female, Node, 7, -1)
 	NiOverride.RemoveNodeOverride(target, female, Node, 0, -1)
@@ -153,11 +166,28 @@ Function ClearOverlay(Actor target, String node) global
     StorageUtil.StringListRemove(target, "EFS_reserved_nio_nodes", node, allInstances = true)
 EndFunction
 
+Function ClearAllFaceNodes(Actor target) global
+	Int i = 0
+	Int NumSlots = NiOverride.GetNumFaceOverlays()
+
+	While i < NumSlots
+        string node = "Face [ovl" + i + "]"
+        ClearOverlay(target, node)
+        i += 1
+    endwhile
+    
+    NiOverride.ApplyNodeOverrides(target)
+EndFunction
+
 ; Versioning
 int Function GetModVersion() global
-    return 1000200
+    return Get03AlphaVersion()
 EndFunction
 
 int Function Get02AlphaVersion() global
     return 1000200
+EndFunction
+
+int Function Get03AlphaVersion() global
+    return 1000300
 EndFunction

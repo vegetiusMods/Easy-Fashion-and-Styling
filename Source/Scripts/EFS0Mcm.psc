@@ -3,7 +3,7 @@ Scriptname EFS0Mcm extends SKI_ConfigBase
 EFS0MainQuest Property Main Auto
 EFS1Undergarments Property UndergarmentsModule Auto
 EFS2BodyHair Property BodyHairModule Auto
-
+EFS3Hair Property HairModule  Auto  
 
 
 ; Pages
@@ -17,10 +17,11 @@ int minArmorSlot = 30
 int maxArmorSlot = 61
 
 event OnConfigOpen()
-    Pages = new string[3]
+    Pages = new string[4]
     Pages[0] = generalPage
     Pages[1] = UndergarmentsModule.ModuleName
     Pages[2] = BodyHairModule.ModuleName
+    Pages[3] = HairModule.ModuleName
 EndEvent
 
 Event OnPageReset(String Page)
@@ -39,8 +40,14 @@ int Id0ModActive
 int Id0DailyUpdateOnSleepTrigger
 int Id0DailyUpdateOnEquipmentChange
 
+int Id0PreviewLength
+
 int Id0QuicksaveConfig
+int Id0ProfileSave
 int Id0QuickloadConfig
+int Id0ProfileLoad
+
+string[] profileNames
 
 ; General
 State General
@@ -48,8 +55,12 @@ State General
         AddHeaderOption("Daily Update Triggers")
         Id0QuicksaveConfig = AddTextOption("Save as default", "CLICK")
         Id0DailyUpdateOnSleepTrigger = AddToggleOption("On Sleep", Main.OnSleepTrigger)
-        Id0QuickloadConfig = AddTextOption("Load default", "CLICK")
+        Id0ProfileSave = AddInputOption("Save as profile", "CLICK")
         Id0DailyUpdateOnEquipmentChange = AddToggleOption("On (Un)Equip", Main.OnEquipmentChangeTrigger)
+        Id0QuickloadConfig = AddTextOption("Load default", "CLICK")
+        AddEmptyOption()
+        Id0ProfileLoad = AddMenuOption("Load profile", "CLICK")
+        Id0PreviewLength = AddSliderOption("Preview duration", Main.PreviewDur, "{0}s")
     EndEvent
 
     Event OnOptionHighlight(int option)
@@ -61,6 +72,12 @@ State General
             SetInfoText("Saves the current configuration as the default one.")
         elseif(Option == Id0QuickloadConfig)
             SetInfoText("Reload the default configuration.")
+        elseif(Option == Id0PreviewLength)
+            SetInfoText("The duration of previews in seconds (before confirming cut/shave).")
+        elseif(Option == Id0ProfileSave)
+            SetInfoText("Save the current configuration as a named profile.")
+        elseif(Option == Id0ProfileLoad)
+            SetInfoText("Load a named profile.")
         endif
     EndEvent
 
@@ -73,10 +90,46 @@ State General
             SetToggleOptionValue(Id0DailyUpdateOnEquipmentChange, Main.OnEquipmentChangeTrigger)
         elseif(OptionID == Id0QuicksaveConfig)
             Main.SaveDefaultConfig()
-            Debug.MessageBox("The current configuration has been saved as the default one.")
-        elseif(OptionID == Id0QuickloadConfig)
+            ShowMessage("The current configuration has been saved as the default one.")
+        elseif(OptionID == Id0PreviewLength)
             Main.LoadDefaultConfig()
-            Debug.MessageBox("The default configuration has been loaded.")
+            ShowMessage("The default configuration has been loaded.")
+        endif
+    EndEvent
+
+    Event OnOptionSliderOpen(int OptionID)
+        If OptionID == Id0PreviewLength
+            SetSliderOptions(Value = Main.PreviewDur, Default = Main.PreviewDur, Min = 0, Max = 30, Interval = 1)
+        EndIf
+    EndEvent
+
+    Event OnOptionSliderAccept(int optionid, float value)
+        If OptionID == Id0PreviewLength
+            Main.PreviewDur = value as int
+            SetSliderOptionValue(Id0PreviewLength, value)
+        EndIf
+    EndEvent
+
+    Event OnOptionMenuOpen(int option)
+        if (option == Id0ProfileLoad)
+            profileNames = Main.GetProfileFileNames()
+            SetMenuDialogOptions(profileNames)
+            SetMenuDialogDefaultIndex(0)
+        endif
+    EndEvent
+
+    Event OnOptionMenuAccept(int option, int index) 
+        if (option == Id0ProfileLoad)
+            string profile = profileNames[index]
+            Main.LoadConfig(profile)
+            ShowMessage("The profile " + profile + " has been loaded.")
+        endif
+    EndEvent
+
+    Event OnOptionInputAccept(int option, string akinput)
+        if (option == Id0ProfileSave)
+            Main.SaveConfig(akinput)
+            ShowMessage("The current configuration has been saved as " + akinput + ".")
         endif
     EndEvent
 EndState
@@ -278,6 +331,71 @@ State BodyHair
 
 EndState
 
+; Hair
+
+int Id3HForceRescan
+int Id3HDaysForGrowth
+int Id3HProgressiveGrowth
+int Id3HSelectHair
+
+State Hair
+    Event OnBeginState()
+        IdModuleActive = AddToggleOption("Module active", HairModule.IsModuleStarted())
+        Id3HForceRescan = AddTextOption("Force player scan", "CLICK")
+        Id3HDaysForGrowth = AddSliderOption("Days for growth",  HairModule.DaysForGrowthBase)
+        Id3HSelectHair = AddTextOption("Manually select hair", "CLICK")
+        Id3HProgressiveGrowth = AddToggleOption("Progressive growth interval", HairModule.ProgressiveGrowth)
+        AddEmptyOption()
+    endevent
+
+    Event OnOptionHighlight(int option)
+        If (Option == IdModuleActive)
+            SetInfoText("Toggle this module on/off.")
+        elseif (option == Id3HDaysForGrowth)
+            SetInfoText("If checked, for each stage the interval for growth will be increased by your current stage (Interval = Base Value + Current Stage).")
+        elseif (option == Id3HProgressiveGrowth)
+            SetInfoText("Number of days between each growth stage. Does not impact performance, so set to your liking.")
+        elseif (option == Id3HSelectHair)
+            SetInfoText("If you have trouble starting the module, click here to manually select your hair type.")
+        endif
+    EndEvent
+
+    Event OnOptionSelect(Int OptionID)
+        if (OptionID == IdModuleActive)
+            HairModule.Toggle()
+            SetToggleOptionValue(IdModuleActive, HairModule.IsModuleStarted())
+        elseif (OptionID == Id3HProgressiveGrowth)
+            HairModule.ProgressiveGrowth = !HairModule.ProgressiveGrowth
+            SetToggleOptionValue(Id3HProgressiveGrowth, HairModule.ProgressiveGrowth)
+        elseif(OptionID == Id3HForceRescan)
+            HairModule.ScanAll()
+        elseif(OptionID == Id3HSelectHair)
+            HairModule.PrepareSelectPlayerHair()
+            ShowMessage("You will be able to configure your hair upon exiting the menu.")
+        endif
+    EndEvent
+
+    Event OnOptionSliderOpen(int OptionID)
+        if (OptionID == Id3HDaysForGrowth)
+            SetSliderOptions(HairModule.DaysForGrowthBase,  HairModule.DaysForGrowthBase, 0, 60, 1)
+        endif
+    EndEvent
+
+    Event OnOptionSliderAccept(int optionid, float value)
+        if (OptionID == Id3HDaysForGrowth)
+            SetSliderOptionValue(optionid, value)
+            HairModule.DaysForGrowthBase = value as int
+            HairModule.FlaggedForRefresh = true
+        endif
+    EndEvent
+
+    Event OnOptionMenuOpen(int option)
+    EndEvent
+
+    Event OnOptionMenuAccept(int option, int index)
+    EndEvent
+EndState
+
 ; Utils
 
 Function SwitchPage(string pageLabel)
@@ -294,3 +412,4 @@ EndFunction
 bool Function IsGeneralPage(string Page)
     return Page == "" || Page == generalPage
 EndFunction
+
