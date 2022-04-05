@@ -40,7 +40,6 @@ Function LoadModule(int loadedVersion)
         Log("First loading")
         ProgressiveGrowth = true
         DaysForGrowthBase = 0
-        ScanAll()
         
         Toggle()
     endif

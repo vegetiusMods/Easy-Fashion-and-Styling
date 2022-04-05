@@ -37,18 +37,22 @@ float initInterval = 5.0
 ; Init and mod lifecycle
 Event OnInit()
     LoadedVersion = 0
-    RegisterForSingleUpdate(initInterval)
+    Load(true)
 EndEvent
 
 Event OnUpdate()
     if MQ101.GetStageDone(250)
-        Load(firstStart = true)
+        HairModule.ScanAll()
     else
         RegisterForSingleUpdate(initInterval)
     endif
 EndEvent
 
 Function Load(bool firstStart = false)
+    if !MQ101.GetStageDone(250)
+        RegisterForSingleUpdate(initInterval)
+    endif
+
     RegisterForModEvent("EFS_ReloadNeeded", "OnReloadNeeded")
 
     int currentVer = EFSzUtil.GetModVersion()
