@@ -5,9 +5,12 @@ int Property LoadedVersion Auto
 ReferenceAlias Property PlayerAlias Auto
 GlobalVariable Property GameDaysPassed Auto
 
+Quest Property MQ101  Auto 
+
 ; Modules
 EFS1Undergarments property UndergarmentsModule Auto
 EFS2BodyHair property BodyHairModule Auto
+EFS3Hair Property HairModule  Auto  
 
 ; DailyUpdateTriggers
 bool Property OnSleepTrigger Auto
@@ -23,16 +26,33 @@ string relativeMcmConfigLocation = "../Easy Fashion and Styling/Mcm/"
 string defaultConfigFileName = "default"
 
 string jmainFile = "config"
-string jconcealSlotsKey = "concealSlots"
-string jconcealKeywordsKey = "concealKeywords"
+string jbodyConcealSlotsKey = "bodyconcealSlots"
+string jheadConcealSlotsKey = "headconcealSlots"
+string jbodyConcealKeywordsKey = "bodyconcealKeywords"
+string jheadConcealKeywordsKey = "headconcealkeywords"
+string jhandsTiedKeywordsKey = "handstiedkeywords"
+
+float initInterval = 5.0
 
 ; Init and mod lifecycle
 Event OnInit()
     LoadedVersion = 0
-    Load(firstStart = true)
+    Load(true)
+EndEvent
+
+Event OnUpdate()
+    if MQ101.GetStageDone(250)
+        HairModule.ScanAll()
+    else
+        RegisterForSingleUpdate(initInterval)
+    endif
 EndEvent
 
 Function Load(bool firstStart = false)
+    if !MQ101.GetStageDone(250)
+        RegisterForSingleUpdate(initInterval)
+    endif
+
     RegisterForModEvent("EFS_ReloadNeeded", "OnReloadNeeded")
 
     int currentVer = EFSzUtil.GetModVersion()
@@ -40,9 +60,10 @@ Function Load(bool firstStart = false)
     ManagedActors = new Actor[1]
     ManagedActors[0] = Game.GetPlayer()
 
-    modules = new EFSzmodule[2]
+    modules = new EFSzmodule[3]
     modules[0] = UndergarmentsModule
     modules[1] = BodyHairModule
+    modules[2] = HairModule
 
     ; 0.2.Alpha BodyHair + Undergarments
     if (LoadedVersion < EFSzUtil.Get02AlphaVersion())
@@ -50,11 +71,11 @@ Function Load(bool firstStart = false)
         OnEquipmentChangeTrigger = false
     endif 
 
-    LoadAll(LoadedVersion)
-
     If (firstStart)
+        LoadAll(0)
         LoadDefaultConfig()
     Else
+        LoadAll(LoadedVersion)
         ; We do not want to force refresh all mods !!!
         RefreshAll(force = false)
     EndIf
@@ -123,14 +144,18 @@ Function RefreshAll(bool force = false)
     EndWhile
 EndFunction
 
-
 ; Config
+
+string[] Function GetProfileFileNames()
+    return JsonUtil.JsonInFolder(relativeMcmConfigLocation)
+EndFunction
 
 Function SaveConfig(string fileName)
     string filePath = relativeMcmConfigLocation + fileName
     ; 0 - General
     JsonUtil.SetIntValue(filePath, "Id0DailyUpdateOnSleepTrigger", OnSleepTrigger as int)
     JsonUtil.SetIntValue(filePath, "Id0DailyUpdateOnEquipmentChange", OnEquipmentChangeTrigger as int)
+    JsonUtil.SetFloatValue(filePath, "Id0PreviewLength", PreviewDur)
 
     ; 1 - Undergarments
     JsonUtil.SetIntValue(filePath, "Id1ModuleActive", UndergarmentsModule.IsModuleStarted() as int)
@@ -159,6 +184,11 @@ Function SaveConfig(string fileName)
     JsonUtil.StringListAdd(filePath, "Id2BHAreasPresets", BodyHairModule.BodyHairAreasPresets[0])
     JsonUtil.StringListAdd(filePath, "Id2BHAreasPresets", BodyHairModule.BodyHairAreasPresets[1])
 
+    ; 3 - Hair
+    JsonUtil.SetIntValue(filePath, "Id3ModuleActive", HairModule.IsModuleStarted() as int)
+    JsonUtil.SetIntValue(filePath, "Id3HDaysForGrowth",  HairModule.DaysForGrowthBase)
+    JsonUtil.SetIntValue(filePath, "Id3HProgressiveGrowth", HairModule.ProgressiveGrowth as int)
+
 	JsonUtil.Save(filePath)
 EndFunction
 
@@ -174,6 +204,7 @@ Function LoadConfig(string fileName)
         ; 0 - General
         OnSleepTrigger = JsonUtil.GetIntValue(filePath, "Id0DailyUpdateOnSleepTrigger") as bool
         OnEquipmentChangeTrigger = JsonUtil.GetIntValue(filePath, "Id0DailyUpdateOnEquipmentChange") as bool
+        PreviewDur = JsonUtil.GetFloatValue(filePath, "Id0PreviewLength")
 
         ; 1 - Undergarments    
         UndergarmentsModule.ConcealingPreventInteract = JsonUtil.GetIntValue(filePath, "Id1ConcealingPreventInteract") as bool
@@ -198,21 +229,43 @@ Function LoadConfig(string fileName)
         BodyHairModule.DaysForGrowth[1] = JsonUtil.IntListGet(filePath, "Id2BHDaysForGrowth", 1)
 
         ToggleLoadModule(filePath, "Id2ModuleActive", BodyHairModule)
+
+        ; 3 - Hair
+        HairModule.DaysForGrowthBase = JsonUtil.GetIntValue(filePath, "Id3HDaysForGrowth")
+        HairModule.ProgressiveGrowth = JsonUtil.GetIntValue(filePath, "Id3HProgressiveGrowth") as bool
+
+        ToggleLoadModule(filePath, "Id3ModuleActive", HairModule)
     endif
 EndFunction
 
-bool Function IsConcealing(Form obj)
+bool Function HasHandsTied(Actor target)
+    int i = 0
+    string[] handsTiedKeywords = GetHandsTiedKeywords()
+    while (i < handsTiedKeywords.Length)
+        Keyword kwd = Keyword.GetKeyword(handsTiedKeywords[i])
+        if (kwd && target.WornHasKeyword(kwd))
+            Debug.MessageBox("You can do that with your hand tied!")
+            return true
+        endIf
+
+        i += 1
+    endWhile
+
+    return false
+EndFunction
+
+bool Function IsBodyConcealing(Form obj)
     Armor arm = obj as Armor
     if (arm)
-        return EFSzUtil.HasOneSlot(arm, GetConcealSlots()) || EFSzUtil.HasOneKeyword(arm, GetConcealKeywords())
+        return EFSzUtil.HasOneSlot(arm, GetBodyConcealSlots()) || EFSzUtil.HasOneKeyword(arm, GetBodyConcealKeywords())
     endIf
 
     return false
 EndFunction
 
-bool Function IsConcealingWorn(Actor target)
+bool Function IsBodyConcealingWorn(Actor target)
     int i = 0
-    int[] concealSlots = GetConcealSlots()
+    int[] concealSlots = GetBodyConcealSlots()
     while (i < concealSlots.Length)
         if (target.GetWornForm(Armor.GetMaskForSlot(concealSlots[i])) != none)
             return true
@@ -222,7 +275,7 @@ bool Function IsConcealingWorn(Actor target)
     endWhile
 
     i = 0
-    string[] concealKeywords = GetConcealKeywords()
+    string[] concealKeywords = GetBodyConcealKeywords()
     while (i < concealKeywords.Length)
         Keyword kwd = Keyword.GetKeyword(concealKeywords[i])
         if (kwd && target.WornHasKeyword(kwd))
@@ -235,12 +288,34 @@ bool Function IsConcealingWorn(Actor target)
     return false
 EndFunction
 
-int[] Function GetConcealSlots()
-    return JSonUtil.IntListToArray(GetFilePath(jmainFile), jconcealSlotsKey)
+bool Function IsHeadConcealingWorn(Actor target)
+    int i = 0
+    int[] concealSlots = GetHeadConcealSlots()
+    while (i < concealSlots.Length)
+        if (target.GetWornForm(Armor.GetMaskForSlot(concealSlots[i])) != none)
+            return true
+        endIf
+
+        i += 1
+    endWhile
+
+    ; TODO check keywords, if a case ever occurs
 EndFunction
 
-string[] Function GetConcealKeywords()
-    return JSonUtil.StringListToArray(GetFilePath(jmainFile), jconcealKeywordsKey)
+int[] Function GetBodyConcealSlots()
+    return JSonUtil.IntListToArray(GetFilePath(jmainFile), jbodyConcealSlotsKey)
+EndFunction
+
+int[] Function GetHeadConcealSlots()
+    return JSonUtil.IntListToArray(GetFilePath(jmainFile), jheadConcealSlotsKey)
+EndFunction
+
+string[] Function GetHandsTiedKeywords()
+    return JSonUtil.StringListToArray(GetFilePath(jmainFile), jhandsTiedKeywordsKey)
+EndFunction
+
+string[] Function GetBodyConcealKeywords()
+    return JSonUtil.StringListToArray(GetFilePath(jmainFile), jbodyConcealKeywordsKey)
 EndFunction
 
 string Function GetPluginFolderPath(bool relative = true)
@@ -271,5 +346,15 @@ Function ToggleLoadModule(String filePath, string startKey, EFSzModule module)
 EndFunction
 
 bool Function HasConfig(string fileName)
-	return MiscUtil.FileExists(fullMcmConfigLocation + fileName + ".json")
+    if (StringUtil.Find(fileName, ".json") < 0)
+        fileName += ".json"
+    endIf
+	return MiscUtil.FileExists(fullMcmConfigLocation + fileName)
 EndFunction
+Message Property EFS_PreviewAsk  Auto  
+
+Message Property EFS_PreviewConfirm  Auto  
+
+Idle Property IdleStop  Auto  
+
+Float Property PreviewDur = 5.0 Auto  

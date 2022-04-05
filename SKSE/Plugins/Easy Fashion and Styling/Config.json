@@ -1,14 +1,29 @@
 {
 	"intList" : 
 	{
-		"concealslots" : 
+		"bodyconcealslots" : 
 		[
 			32
+		],
+		"headconcealslots" : 
+		[
+			31,
+			42
 		]
 	},
 	"stringList" : 
 	{
-		"concealkeywords" : 
+		"handstiedkeywords" : 
+		[
+			"zad_DeviousArmbinder",
+			"zad_DeviousYoke",
+			"zad_DeviousHeavyBondage",
+			"zbfEffectNoFighting"
+		],
+		"bodyconcealkeywords" : 
+		[
+		],
+		"headconcealkeywords" : 
 		[
 		]
 	}

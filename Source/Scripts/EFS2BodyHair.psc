@@ -1,8 +1,6 @@
 Scriptname EFS2BodyHair extends EFSzModule  
 
 ; Constants
-string maleFolder = "m/"
-string femaleFolder = "f/"
 string growthPresetsFolder = "growth_presets/"
 string trimmingsFolder = "trimmings/"
 string areaConfigFileName = "config"
@@ -33,7 +31,6 @@ Bool Property OutfitRestrictAccess  Auto
 Bool Property ProgressiveGrowth  Auto  
 
 Sound Property EFSShaving Auto
-Idle Property IdleStop  Auto  
 
 ; Fields
 string[] AreasLastTrimmings
@@ -43,7 +40,8 @@ Event OnInit()
 EndEvent
 
 Function LoadModule(int loadedVersion)
-    if (loadedVersion < EFSzUtil.Get02AlphaVersion())
+    if (loadedVersion < EFSzUtil.Get02AlphaVersion() && !IsModuleStarted())
+        Log("First loading")
         BodyHairAreas = new string[2]
         BodyHairAreas[0] = "Armpits"
         BodyHairAreas[1] = "Pubes"
@@ -65,6 +63,8 @@ Function LoadModule(int loadedVersion)
 
         Toggle()
     endif
+
+    RegisterForSleep()
 EndFunction
 
 State Started
@@ -74,10 +74,6 @@ State Started
     EndFunction
 
     Function DoRefresh()
-        if (Main.OnSleepTrigger)
-            RegisterForSleep()
-        endif
-
         EFSzUtil.log("Refreshing body hair")
 
         int i = 0
@@ -88,7 +84,9 @@ State Started
     EndFunction
 
     Event OnSleepStop(bool abInterrupted)
-        UpdateGrowthAll()
+        if (Main.OnSleepTrigger)
+            UpdateGrowthAll()
+        endif
     EndEvent    
 
     Function ObjectUnequipped(Actor target, Form akBaseObject, ObjectReference akReference)
@@ -197,7 +195,7 @@ State Started
     EndFunction
 
     bool Function IsAreaAccessible(Actor target, int areaIndex)
-        If(Main.IsConcealingWorn(target))
+        If(Main.IsBodyConcealingWorn(target))
             EFSzUtil.log("Wearing concealing armor, area not accessible")
             return false
         endif
@@ -223,7 +221,21 @@ State Started
         return true
     EndFunction
 
-    bool Function ApplyCream(Actor target, int areaIndex, Spell creamSpell)
+    bool Function ApplyCream(Actor target, Spell[] creamSpells)
+        if (Main.HasHandsTied(target))
+            return false
+        endif
+
+        int areaIndex = EFS_SelectShavingArea.Show()
+        if (areaIndex < 0 || areaIndex >= 2)
+            return false
+        endif
+
+        if (!IsAreaAccessible(target, areaIndex))
+            Debug.MessageBox("This area is not accessible, it must be uncovered for you to be able to apply cream.")
+            return false
+        endif
+
         Game.DisablePlayerControls(true, true, true, false, true, true, true, true)
         Game.ForceThirdPerson()
 
@@ -239,15 +251,28 @@ State Started
 
         target.PlayIdle(shavingIddle)
         Utility.Wait(1.0)
-        creamSpell.Cast(target, target)
+        creamSpells[areaIndex].Cast(target, target)
         Utility.Wait(4.0)
-        target.PlayIdle(IdleStop)
+        target.PlayIdle(Main.IdleStop)
         Utility.Wait(0.500000)
 
         Game.EnablePlayerControls()
     EndFunction
 
-    bool Function Shave(Actor target, int areaIndex)
+    bool Function Shave(Actor target)
+        if (Main.HasHandsTied(target))
+            return false
+        endif
+
+        int areaIndex = EFS_SelectShavingArea.Show()
+
+        if (areaIndex > 1)
+            return false
+        elseif (!IsAreaAccessible(target, areaIndex))
+            Debug.MessageBox("This area is not accessible, it must be uncovered for you to be able to shave.")
+            return false
+        endif
+
         string areaName = GetAreaName(areaIndex)
         if (!target.HasMagicEffectWithKeyword(Keyword.GetKeyword(creamKeywordPrefix + areaName)))
             Debug.MessageBox("You must first apply cream on an area in order to save it.")
@@ -327,37 +352,54 @@ State Started
                 newStage = JsonUtil.GetIntValue(trimmingFile, "stage")
             endIf
         endIf
-    
-        ; Shaving
-        Idle shavingIddle = JsonUtil.GetFormValue(GetConfigFile(target, areaName), "shavingIdle") as Idle
-    
-        If target.IsWeaponDrawn()
-            target.SheatheWeapon()
-            Utility.Wait(1.500000)
-        Else
-            Utility.Wait(0.200000)
-        EndIf
-        
-        target.PlayIdle(shavingIddle)
-        EFSShaving.Play(target)
-        Utility.Wait(1.0)
-        EFSShaving.Play(target)
-        RemoveCreamSpells[areaIndex].Cast(target, target)
-        ApplyZoneStage(target, areaName, newStage, GetMaxAreaStage(target, areaName), texture)
-        StorageUtil.SetIntValue(target, sLastUpdateDayKeyPrefix + areaName, Main.GameDaysPassed.GetValueInt())
-        Utility.Wait(1.0)
-        EFSShaving.Play(target)
-        Utility.Wait(4.0)
-        target.PlayIdle(IdleStop)
-        if(texture == "")
-            StorageUtil.UnsetStringValue(target, sCurrentTrimmingPrefix + areaName)
-            Debug.Notification("You have cleanly shaved your " + areaName)
-        Else
-            StorageUtil.SetStringValue(target, sCurrentTrimmingPrefix + areaName, trimming)
-            Debug.Notification("You have trimmed your " + areaName)
+
+        ; Preview
+        bool preview = (Main.EFS_PreviewAsk.Show() == 0)
+        bool previewConfirm = false
+
+        if (preview)
+            ; TODO Acutal preview
+            RefreshZoneOverlay(target, areaName, newStage, texture)
+
+            Utility.Wait(Main.PreviewDur)
+            previewConfirm = Main.EFS_PreviewConfirm.Show() == 0
+
+            RefreshZoneOverlay(target, areaName, currentStage)
         endIf
-        Utility.Wait(0.500000)
     
+        if (!preview || previewConfirm)
+
+            ; Shaving
+            Idle shavingIddle = JsonUtil.GetFormValue(GetConfigFile(target, areaName), "shavingIdle") as Idle
+        
+            If target.IsWeaponDrawn()
+                target.SheatheWeapon()
+                Utility.Wait(1.500000)
+            Else
+                Utility.Wait(0.200000)
+            EndIf
+            
+            target.PlayIdle(shavingIddle)
+            EFSShaving.Play(target)
+            Utility.Wait(1.0)
+            EFSShaving.Play(target)
+            RemoveCreamSpells[areaIndex].Cast(target, target)
+            ApplyZoneStage(target, areaName, newStage, GetMaxAreaStage(target, areaName), texture)
+            StorageUtil.SetIntValue(target, sLastUpdateDayKeyPrefix + areaName, Main.GameDaysPassed.GetValueInt())
+            Utility.Wait(1.0)
+            EFSShaving.Play(target)
+            Utility.Wait(4.0)
+            target.PlayIdle(Main.IdleStop)
+            if(texture == "")
+                StorageUtil.UnsetStringValue(target, sCurrentTrimmingPrefix + areaName)
+                Debug.Notification("You have cleanly shaved your " + areaName)
+            Else
+                StorageUtil.SetStringValue(target, sCurrentTrimmingPrefix + areaName, trimming)
+                Debug.Notification("You have trimmed your " + areaName)
+            endIf
+            Utility.Wait(0.500000)
+        
+        endif
         Game.EnablePlayerControls()
         return true
     EndFunction
@@ -435,12 +477,14 @@ bool Function IsAreaAccessible(Actor target, int areaIndex)
     return false
 EndFunction
 
-bool Function ApplyCream(Actor target, int areaIndex, Spell creamSpell)
-
+bool Function ApplyCream(Actor target, Spell[] creamSpells)
+    ShowInactiveMessage()
+    return false
 EndFunction
 
-bool Function Shave(Actor target, int areaIndex)
-
+bool Function Shave(Actor target)
+    ShowInactiveMessage()
+    return false
 EndFunction
 
 string Function GetAreaName(int areaIndex)
@@ -457,18 +501,6 @@ EndFunction
 
 int Function GetMaxAreaStage(Actor target, string areaname)
     return JsonUtil.StringListCount(GetActivePresetFile(target, areaname), jStagesKey) - 1
-EndFunction
-
-string Function GetSexFolder(bool female, bool relative = true)
-    string folderPath = GetModuleFolderPath()
-    
-    if (female)
-        folderPath += femaleFolder
-    else
-        folderPath += maleFolder
-    endIf
-    ;log("SexFolder: " + folderPath)
-    return folderPath
 EndFunction
 
 string Function GetAreaFolder(bool female, string areaName, bool relative = true)
@@ -548,3 +580,4 @@ EndFunction
 String Function GetStatus(Actor target)
     return "--- Body Hair ---\nModule Disabled"
 EndFunction
+Message Property EFS_SelectShavingArea  Auto  

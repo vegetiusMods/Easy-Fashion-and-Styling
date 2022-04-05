@@ -1,0 +1,55 @@
+{
+	"stringList" : 
+	{
+        "requirements": 
+		[
+			"KS Hairdo's.esp",
+            "KSHairdosSMP.esp",
+            "Xing SMP Hairs and Wigs - Dint999.esp",
+            "Xing SMP Hairs and Wigs - Fuse.esp",
+            "Xing SMP Hairs and Wigs - HHairstyles.esp"
+		],
+        "length" : 
+        [
+            "Bald", 
+            "Subtle",
+            "Very Short", 
+            "Short", 
+            "Eyebrows",
+            "Ears", 
+            "Chin", 
+            "Neck",
+            "Shoulders", 
+            "Armpits",
+            "Collarbone", 
+            "Chest", 
+            "Diaphragm", 
+            "Navel",
+            "Lowerback", 
+            "Pubis", 
+            "Crotch",
+            "Tights"
+        ], 
+		"default" : 
+        [ 
+            "HairFemaleRedguard03", 
+            "HairFemaleRedguard04", 
+            "HairFemaleImperial1",
+            "0RedRobinF", 
+            "0JasperF",
+            "0Liberty",
+            "0Alma", 
+            "KSSMP_Vapor", 
+            "KSSMP_Wine",
+            "KSSMP_Snow", 
+            "KSSMP_Runaway",
+            "HDPT_F__Dint_KS_Sleeper_WigHDT",
+            "HDPT_F__Dint_KS_Dawn_WigHDT",
+            "HDPT_F__Dint_KSCaramellaWigHDT",
+            "HDPT_F__Dint_KSAmberLWigHDT", 
+            "HDPT_F__Dint_KS_Eden_WigHDT",
+            "HDPT_F__Dint_KS_Aquaria_WigHDT",
+            "HDPT_F__Dint_KS_Galactic_WigHDT"
+        ]
+    }
+}
