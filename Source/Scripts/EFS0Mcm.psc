@@ -338,6 +338,13 @@ int Id3HDaysForGrowth
 int Id3HProgressiveGrowth
 int Id3HSelectHair
 
+int Id3HOnHitMessChances
+int Id3HOnSleepMessChances
+int Id3HOnRemoveHelmetMessChances
+int Id3HOnAssaultMessChances
+int Id3HOnHitOnlyPowerAttack
+int Id3HOnHitOnlyUnblocked
+
 State Hair
     Event OnBeginState()
         IdModuleActive = AddToggleOption("Module active", HairModule.IsModuleStarted())
@@ -346,6 +353,19 @@ State Hair
         Id3HSelectHair = AddTextOption("Manually select hair", "CLICK")
         Id3HProgressiveGrowth = AddToggleOption("Progressive growth interval", HairModule.ProgressiveGrowth)
         AddEmptyOption()
+        AddHeaderOption("Hair mess up")
+        AddEmptyOption()
+        Id3HOnSleepMessChances = AddSliderOption("On sleep chances",  HairModule.OnSleepMessChances, "{0}%")
+        AddEmptyOption()
+        Id3HOnRemoveHelmetMessChances = AddSliderOption("On remove headwear chances",  HairModule.OnRemoveHelmetMessChances, "{0}%")
+        AddEmptyOption()
+        Id3HOnAssaultMessChances = AddSliderOption("On assault chances",  HairModule.OnAssaultMessChances, "{0}%")
+        AddEmptyOption()
+        Id3HOnHitMessChances = AddSliderOption("On hit chances",  HairModule.OnHitMessChances, "{0}%")
+        AddEmptyOption()
+        Id3HOnHitOnlyPowerAttack = AddToggleOption("Only power attacks", HairModule.OnHitOnlyPowerAttack)
+        AddEmptyOption()
+        Id3HOnHitOnlyUnblocked = AddToggleOption("Only unblocked", HairModule.OnHitOnlyUnblocked)
     endevent
 
     Event OnOptionHighlight(int option)
@@ -357,6 +377,18 @@ State Hair
             SetInfoText("Number of days between each growth stage. Does not impact performance, so set to your liking.")
         elseif (option == Id3HSelectHair)
             SetInfoText("If you have trouble starting the module, click here to manually select your hair type.")
+        elseif (option == Id3HOnSleepMessChances)
+            SetInfoText("Chances your hair style will be messed up on sleep. Set to 0 to disable.")
+        elseif (option == Id3HOnRemoveHelmetMessChances)
+            SetInfoText("Chances your hair style will be messed up on removing your headwear. Set to 0 to disable.")
+        elseif (option == Id3HOnAssaultMessChances)
+            SetInfoText("Chances your hair style will be messed up on assault (require SexLab). Set to 0 to disable.")
+        elseif (option == Id3HOnHitMessChances)
+            SetInfoText("Chances your hair style will be messed up on being hit. Set to 0 to disable.")
+        elseif (option == Id3HOnHitOnlyPowerAttack)
+            SetInfoText("If on, your hair can only be messed up by power attacks.")
+        elseif (option == Id3HOnHitOnlyUnblocked)
+            SetInfoText("If on, your hair can only be messed up by unblocked attacks.")
         endif
     EndEvent
 
@@ -372,20 +404,47 @@ State Hair
         elseif(OptionID == Id3HSelectHair)
             HairModule.PrepareSelectPlayerHair()
             ShowMessage("You will be able to configure your hair upon exiting the menu.")
+        elseif(OptionID == Id3HOnHitOnlyPowerAttack)
+            HairModule.OnHitOnlyPowerAttack = !HairModule.OnHitOnlyPowerAttack
+            SetToggleOptionValue(Id3HOnHitOnlyPowerAttack, HairModule.OnHitOnlyPowerAttack)
+        elseif(OptionID == Id3HOnHitOnlyUnblocked)
+            HairModule.OnHitOnlyUnblocked = !HairModule.OnHitOnlyUnblocked
+            SetToggleOptionValue(Id3HOnHitOnlyUnblocked, HairModule.OnHitOnlyUnblocked)
         endif
     EndEvent
 
     Event OnOptionSliderOpen(int OptionID)
         if (OptionID == Id3HDaysForGrowth)
             SetSliderOptions(HairModule.DaysForGrowthBase,  HairModule.DaysForGrowthBase, 0, 60, 1)
+        elseif (OptionID == Id3HOnSleepMessChances)
+            SetSliderOptions(HairModule.OnSleepMessChances,  HairModule.OnSleepMessChances, 0, 100, 1)
+        elseif (OptionID == Id3HOnRemoveHelmetMessChances)
+            SetSliderOptions(HairModule.OnRemoveHelmetMessChances,  HairModule.OnRemoveHelmetMessChances, 0, 100, 1)
+        elseif (OptionID == Id3HOnAssaultMessChances)
+            SetSliderOptions(HairModule.OnAssaultMessChances,  HairModule.OnAssaultMessChances, 0, 100, 1)
+        elseif (OptionID == Id3HOnHitMessChances)
+            SetSliderOptions(HairModule.OnHitMessChances,  HairModule.OnHitMessChances, 0, 100, 1)
         endif
     EndEvent
 
     Event OnOptionSliderAccept(int optionid, float value)
-        if (OptionID == Id3HDaysForGrowth)
-            SetSliderOptionValue(optionid, value)
+        
+        if (OptionID == Id3HDaysForGrowth)  
             HairModule.DaysForGrowthBase = value as int
+            SetSliderOptionValue(optionid, value)
             HairModule.FlaggedForRefresh = true
+        elseif (OptionID == Id3HOnSleepMessChances)
+            HairModule.OnSleepMessChances = value as int
+            SetSliderOptionValue(optionid, value, "{0}%")
+        elseif (OptionID == Id3HOnRemoveHelmetMessChances)
+            HairModule.OnRemoveHelmetMessChances = value as int
+            SetSliderOptionValue(optionid, value, "{0}%")
+        elseif (OptionID == Id3HOnAssaultMessChances)
+            HairModule.OnAssaultMessChances = value as int
+            SetSliderOptionValue(optionid, value, "{0}%")
+        elseif (OptionID == Id3HOnHitMessChances)
+            HairModule.OnHitMessChances = value as int
+            SetSliderOptionValue(optionid, value, "{0}%")
         endif
     EndEvent
 

@@ -39,8 +39,16 @@ Function LoadModule(int loadedVersion)
     if (loadedVersion < EFSzUtil.Get03AlphaVersion() && !IsModuleStarted())
         Log("First loading")
         ProgressiveGrowth = true
-        DaysForGrowthBase = 0
+        DaysForGrowthBase = 2
         
+        OnHitMessChances = 10
+        OnSleepMessChances = 10
+        OnRemoveHelmetMessChances = 10
+        OnAssaultMessChances = 90
+        
+        OnHitOnlyPowerAttack = false
+        OnHitOnlyUnblocked = true
+
         Toggle()
     endif
 
@@ -64,12 +72,29 @@ State Started
     EndEvent    
 
     Function ObjectUnequipped(Actor target, Form akBaseObject, ObjectReference akReference)
-        if (Main.OnEquipmentChangeTrigger)
-            Armor arm = akBaseObject as Armor
-            if (arm && EFSzUtil.HasSlot(arm, 31))
-                UpdateGrowth(target)
+        if (Main.IsHeadConcealing(akBaseObject))
+            if (Main.OnEquipmentChangeTrigger)
+                Armor arm = akBaseObject as Armor
+                if (arm && EFSzUtil.HasSlot(arm, 31))
+                    UpdateGrowth(target)
+                endif
             endif
+            if (RollForHairMessUp(target, OnRemoveHelmetMessChances))
+                Debug.Notification("You messed up your hair while removing your headwear.")
+            endIf
+        endIf
+    EndFunction
+
+    Function OnHit(Actor target, ObjectReference akAggressor, Form akSource, Projectile akProjectile, bool abPowerAttack, bool abSneakAttack, bool abBashAttack, bool abHitBlocked)
+        if ((!OnHitOnlyUnblocked || !abHitBlocked) && (!OnHitOnlyPowerAttack || abPowerAttack) && RollForHairMessUp(target, OnHitMessChances))
+            Debug.Notification("Your hair got messed up in the fight.")
         endif
+    EndFunction
+
+    Function OnAggressiveAnimEnds(Actor victim)
+        if (RollForHairMessUp(victim, OnAssaultMessChances))
+            Debug.Notification("Your hair got messed up.")
+        endIf
     EndFunction
 
     Function UpdateGrowthAll()
@@ -128,6 +153,10 @@ State Started
             else
                 EFSzUtil.log(daysPassed + " days passed, it is lesser than " + daysForGrowth + ", no hair growth")
             endif
+
+            if (RollForHairMessUp(target, OnSleepMessChances))
+                Debug.MessageBox("Your hair style got messed up during your sleep.")
+            endIf
         endif
     EndFunction
 
@@ -277,8 +306,9 @@ State Started
         UIListMenu stylesMenu = uiextensions.GetMenu("UIListMenu") as UIListMenu
     
         ; Default style
-        stylesMenu.AddEntryItem(jNaturalKey)
-        stylesCount += 1
+        if (category == combedCat)
+            stylesMenu.AddEntryItem(jNaturalKey)
+        endif
     
         ; Get the available brushed style
         
@@ -297,7 +327,7 @@ State Started
         endWhile
     
         ; If default and no style available we stop
-        if (currentCategory == jNaturalKey && stylesCount == 1)
+        if (currentCategory == jNaturalKey && stylesCount == 0)
             Debug.MessageBox("No matching style is available for your hair length.")
             Game.EnablePlayerControls()
             return false
@@ -314,14 +344,21 @@ State Started
         endIf
     
         Log(desiredStyle)
-        Log(desiredHairPart)
-        HeadPart desiredHairPart = GetCurrentTypeHairPart(target, category, desiredStyle, currentStage)
-        if (!desiredHairPart)
-            Debug.MessageBox("Easy body hair was unable to find the corresponding hairdo, please check the configs file.")
-            Game.EnablePlayerControls()
-            return false
+        HeadPart desiredHairPart = none
+        
+        if (desiredStyle == jNaturalKey)
+            desiredHairPart = GetDefaultHairPart(target, currentStage)
+        else
+            desiredHairPart = GetCurrentTypeHairPart(target, category, desiredStyle, currentStage)
+            if (!desiredHairPart)
+                Debug.MessageBox("Easy body hair was unable to find the corresponding hairdo, please check the configs file.")
+                Game.EnablePlayerControls()
+                return false
+            endif
         endif
     
+        Log(desiredHairPart)
+
          ; Preview
          HeadPart currentHairDo = GetCurrentHair(target.GetActorBase())
          bool preview = (Main.EFS_PreviewAsk.Show() == 0)
@@ -503,6 +540,18 @@ Function ScanInitActor(Actor target)
 
 EndFunction
 
+bool Function RollForHairMessUp(Actor target, int chances)
+    if (chances > 0 && GetCurrentCategory(target) != jNaturalKey && Utility.RandomInt(0, 99) < chances)
+        int currentStage = GetCurrentStage(target)
+        HeadPart newhair = GetDefaultHairPart(target, currentStage)
+        SetHair(target, newhair)
+        SetCurrentCategory(target, jNaturalKey)
+        ClearCurrentStyle(target)
+        return true
+    else
+        return false
+    EndIf
+EndFunction
 
 Function PrepareSelectPlayerHair()
     RegisterForMenu("Journal Menu") 
@@ -787,3 +836,15 @@ EndFunction
 Sound Property EFSCut  Auto  
 
 Sound Property EFSShaving  Auto  
+
+Int Property OnHitMessChances  Auto  
+
+Int Property OnSleepMessChances  Auto  
+
+Int Property OnRemoveHelmetMessChances  Auto  
+
+Int Property OnAssaultMessChances  Auto  
+
+Bool Property OnHitOnlyPowerAttack  Auto  
+
+Bool Property OnHitOnlyUnblocked  Auto  
