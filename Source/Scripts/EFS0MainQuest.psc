@@ -80,6 +80,8 @@ Function Load(bool firstStart = false)
         RefreshAll(force = false)
     EndIf
 
+    LoadInterfaces()
+
     LoadedVersion = currentVer
 
     EFSzUtil.log("Started")
@@ -97,6 +99,22 @@ Function ObjectUnequipped(Actor target, Form akBaseObject, ObjectReference akRef
     int i = 0
     while (i < modules.Length)
         modules[i].ObjectUnequipped(target, akBaseObject, akReference)
+        i += 1
+    EndWhile
+EndFunction
+
+Function OnHit(Actor target, ObjectReference akAggressor, Form akSource, Projectile akProjectile, bool abPowerAttack, bool abSneakAttack, bool abBashAttack, bool abHitBlocked)
+    int i = 0
+    while (i < modules.Length)
+        modules[i].OnHit(target, akAggressor, akSource, akProjectile, abPowerAttack, abSneakAttack, abBashAttack, abHitBlocked)
+        i += 1
+    EndWhile
+EndFunction
+
+Function OnAggressiveAnimEnds(Actor victim)
+    int i = 0
+    while (i < modules.Length)
+        modules[i].OnAggressiveAnimEnds(victim)
         i += 1
     EndWhile
 EndFunction
@@ -133,6 +151,10 @@ Function LoadAll(int lastVer)
 
         i += 1
     EndWhile
+EndFunction
+
+Function LoadInterfaces()
+    ISexLab.LoadInterface()
 EndFunction
 
 Function RefreshAll(bool force = false)
@@ -189,6 +211,13 @@ Function SaveConfig(string fileName)
     JsonUtil.SetIntValue(filePath, "Id3HDaysForGrowth",  HairModule.DaysForGrowthBase)
     JsonUtil.SetIntValue(filePath, "Id3HProgressiveGrowth", HairModule.ProgressiveGrowth as int)
 
+    JsonUtil.SetIntValue(filePath, "Id3HOnSleepMessChances",  HairModule.OnSleepMessChances)
+    JsonUtil.SetIntValue(filePath, "Id3HOnRemoveHelmetMessChances",  HairModule.OnRemoveHelmetMessChances)
+    JsonUtil.SetIntValue(filePath, "Id3HOnAssaultMessChances",  HairModule.OnAssaultMessChances)
+    JsonUtil.SetIntValue(filePath, "Id3HOnHitMessChances",  HairModule.OnHitMessChances)
+    JsonUtil.SetIntValue(filePath, "Id3HOnHitOnlyPowerAttack", HairModule.OnHitOnlyPowerAttack as int)
+    JsonUtil.SetIntValue(filePath, "Id3HOnHitOnlyUnblocked", HairModule.OnHitOnlyUnblocked as int)
+
 	JsonUtil.Save(filePath)
 EndFunction
 
@@ -233,6 +262,13 @@ Function LoadConfig(string fileName)
         ; 3 - Hair
         HairModule.DaysForGrowthBase = JsonUtil.GetIntValue(filePath, "Id3HDaysForGrowth")
         HairModule.ProgressiveGrowth = JsonUtil.GetIntValue(filePath, "Id3HProgressiveGrowth") as bool
+
+        HairModule.OnSleepMessChances = JsonUtil.GetIntValue(filePath, "Id3HOnSleepMessChances")
+        HairModule.OnRemoveHelmetMessChances = JsonUtil.GetIntValue(filePath, "Id3HOnRemoveHelmetMessChances")
+        HairModule.OnAssaultMessChances = JsonUtil.GetIntValue(filePath, "Id3HOnAssaultMessChances")
+        HairModule.OnHitMessChances = JsonUtil.GetIntValue(filePath, "Id3HOnHitMessChances")
+        HairModule.OnHitOnlyPowerAttack = JsonUtil.GetIntValue(filePath, "Id3HOnHitOnlyPowerAttack") as bool
+        HairModule.OnHitOnlyUnblocked = JsonUtil.GetIntValue(filePath, "Id3HOnHitOnlyUnblocked") as bool
 
         ToggleLoadModule(filePath, "Id3ModuleActive", HairModule)
     endif
@@ -284,6 +320,15 @@ bool Function IsBodyConcealingWorn(Actor target)
 
         i += 1
     endWhile
+
+    return false
+EndFunction
+
+bool Function IsHeadConcealing(Form obj)
+    Armor arm = obj as Armor
+    if (arm)
+        return EFSzUtil.HasOneSlot(arm, GetHeadConcealSlots())
+    endIf
 
     return false
 EndFunction
@@ -358,3 +403,5 @@ Message Property EFS_PreviewConfirm  Auto
 Idle Property IdleStop  Auto  
 
 Float Property PreviewDur = 5.0 Auto  
+
+EFSxSLInterface Property ISexLab  Auto  

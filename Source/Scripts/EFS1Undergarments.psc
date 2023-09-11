@@ -16,6 +16,9 @@ string jliveSaveFile = "tmp"
 string jconcealedArmorsKey = "concealedArmors"
 string jconcealedArmorsSlotsKey = "concealedArmorsSlots"
 
+bool unewatchdog = false
+bool ewatchdog = false
+
 Event OnInit()
     ModuleName = "Undergarments"
 EndEvent
@@ -49,6 +52,10 @@ State Started
     EndFunction
 
     Function ObjectEquipped(Actor target, Form akBaseObject, ObjectReference akReference)
+        if ewatchdog
+            ewatchdog = False
+            return
+        endif
         ; Check if masking
         if (Main.IsBodyConcealing(akBaseObject))
             EFSzUtil.log("Equipped a concealing armor")
@@ -58,6 +65,7 @@ State Started
         elseif (IsConcealable(akBaseObject) && Main.IsBodyConcealingWorn(target) && !IsConcealed(akBaseObject))
             If (ConcealingPreventInteract)
                 EFSzUtil.log("Equipping concealable item but concealing armor prevents it")
+                unewatchdog = true
                 target.UnequipItem(akBaseObject, abSilent = true)
                 Debug.MessageBox("Your worn outfit prevents you from putting on this undergarment")
             else
@@ -72,8 +80,14 @@ State Started
     EndFunction
 
     Function ObjectUnequipped(Actor target, Form akBaseObject, ObjectReference akReference)
+        if unewatchdog
+            unewatchdog = False
+            return
+        endif
+
         if (IsConcealed(akBaseObject) && !target.IsEquipped(akBaseObject))
             If (ConcealingPreventInteract && Main.IsBodyConcealingWorn(target))
+                ewatchdog = true
                 target.EquipItem(akBaseObject, abSilent = true)
                 Debug.MessageBox("Your worn outfit prevents you from removing this undergarment.")
             Else
@@ -85,6 +99,7 @@ State Started
             RevealAll(target)
         elseif (IsConcealable(akBaseObject) && Main.IsBodyConcealingWorn(target) && !IsConcealed(akBaseObject))
             Conceal(target, akBaseObject as Armor, false)
+            ewatchdog = true
             target.EquipItem(akBaseObject, abSilent = true)
         endif
     EndFunction
@@ -199,6 +214,7 @@ Function Conceal(Actor target, Armor akArmor, bool refreshEquip = true)
 
     while (i < concealedArmors.Length)
         if (target.IsEquipped(concealedArmors[i]) &&  Math.LogicalAnd(GetConcealedArmorOriginalSlotmask(concealedArmors[i]), slotMaskToRemove) > 0)
+            unewatchdog = true
             target.UnequipItem(concealedArmors[i])
         endif
 
@@ -313,7 +329,9 @@ Function Unhide(Armor akArmor)
 EndFunction
 
 Function RefreshEquip(Actor target, Form item)
+    unewatchdog = true
     target.UnequipItem(item, abSilent = true)
+    ewatchdog = true
     target.EquipItem(item, abSilent = true)
 EndFunction
 

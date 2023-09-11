@@ -4,6 +4,13 @@ Scriptname EFSi_ShavingKnifeScript extends ObjectReference
 EFS2BodyHair Property BodyHairModule  Auto  
 
 Event OnEquipped(Actor akActor) 
-    BodyHairModule.Shave(akActor)
+    if (BodyHairModule.Shave(akActor) && Utility.RandomInt(0, 99) < BreakChances)
+        Debug.MessageBox("Your shaving knife dulled out.")
+        akActor.RemoveItem(Knife)
+    endif
 EndEvent
 
+
+Int Property BreakChances  Auto  
+
+MiscObject Property Knife  Auto  

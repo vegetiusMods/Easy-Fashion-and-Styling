@@ -25,8 +25,7 @@
             "Chest", 
             "Diaphragm", 
             "Navel",
-            "Lowerback", 
-            "Pubis", 
+            "Lowerback",
             "Tights"
         ], 
 		"default" : 
@@ -34,20 +33,19 @@
             "HairFemaleRedguard03", 
             "HairFemaleRedguard04", 
             "HairFemaleImperial1",
-            "0RoyF", 
-            "0Liberty",
-            "0Hal", 
-            "0Alma", 
-            "KSSMP_Vapor", 
-            "KSSMP_Wine",
-            "KSSMP_Snow", 
-            "KSSMP_Runaway",
-            "HDPT_F__Dint_KS_Sleeper_WigHDT",
-            "HDPT_F__Dint_KS_Dawn_WigHDT",
-            "HDPT_F__Dint_KSCaramellaWigHDT",
-            "HDPT_F__Dint_KSAmberLWigHDT", 
-            "HDPT_F__Dint_KS_Eden_WigHDT",
-            "HDPT_F__Dint_KS_Aquaria_WigHDT"
+            "0RoyF",
+            "0Kamill",
+            "0Alchemyst",
+            "KSSMP_FoamSummer", 
+            "KSSMP_Amor", 
+            "HDPT_F__Dint_HG_FlyingMinaj_WigHDT",
+            "HDPT_F__Dint_SGhairWildsoulWigHDT", 
+            "KSSMP_RosieCloud",
+            "KSSMP_Jackdaw",
+            "KSSMP_Milliet",
+            "HDPT_F__Dint_KS_Temptress_WigHDT",
+            "HDPT_F__Dint_KS_SailAway_WigHDT", 
+            "HDPT_F__Dint_KS_SirenForest_WigHDT"
         ]
     }
 }

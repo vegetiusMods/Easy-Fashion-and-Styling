@@ -48,6 +48,12 @@ Function ObjectEquipped(Actor target, Form akBaseObject, ObjectReference akRefer
 EndFunction
 
 Function ObjectUnequipped(Actor target, Form akBaseObject, ObjectReference akReference)
+EndFunction
+
+Function OnHit(Actor target, ObjectReference akAggressor, Form akSource, Projectile akProjectile, bool abPowerAttack, bool abSneakAttack, bool abBashAttack, bool abHitBlocked)
+EndFunction
+
+Function OnAggressiveAnimEnds(Actor victim)
 
 EndFunction
 

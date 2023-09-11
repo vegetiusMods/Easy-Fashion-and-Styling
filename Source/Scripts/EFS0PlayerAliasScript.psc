@@ -15,3 +15,7 @@ Event OnObjectUnequipped(Form akBaseObject, ObjectReference akReference)
 	;EFSzUtil.log("Receiving unequip event")
 	EFSMain.ObjectUnequipped(GetActorRef(), akBaseObject, akReference)
 EndEvent
+
+Event OnHit(ObjectReference akAggressor, Form akSource, Projectile akProjectile, bool abPowerAttack, bool abSneakAttack, bool abBashAttack, bool abHitBlocked)
+	EFSMain.OnHit(GetActorRef(), akAggressor, akSource, akProjectile, abPowerAttack, abSneakAttack, abBashAttack, abHitBlocked)
+EndEvent

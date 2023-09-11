@@ -14,6 +14,7 @@
     <Imports>
         <Import>.\Source\Scripts</Import>
         <Import>C:\Modding\SkyrimSEL\mods\Scripts\Source\Scripts</Import>
+        <Import>C:\Modding\SkyrimSEL\mods\SexLabFrameworkSE v163 BETA8\scripts\Source</Import>
     </Imports>
     <Folders>
         <Folder>.\Source\Scripts</Folder>
